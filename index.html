@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xanh Edu 2.0 - Hệ Thống Tạo Nhận Xét Tự Động</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        :root { --primary: #1a73e8; --secondary: #2e7d32; --danger: #d32f2f; --warning: #f57c00; --bg: #f4f7f9; }
+        body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; background: var(--bg); padding: 20px; color: #333; }
+        .container { max-width: 1200px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.08); border-top: 6px solid var(--secondary); }
+        .header { text-align: center; margin-bottom: 25px; border-bottom: 2px dashed #eee; padding-bottom: 15px; }
+        .title-main { color: var(--secondary); font-size: 28px; font-weight: 800; text-transform: uppercase; margin: 0; letter-spacing: 1px;}
+        .subtitle { font-style: italic; color: #666; margin-top: 5px; font-size: 15px;}
+        
+        .step-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .step-box { background: #f8f9fa; border: 1px solid #dfe1e5; padding: 15px; border-radius: 8px; transition: 0.3s; }
+        .step-box:hover { border-color: var(--primary); box-shadow: 0 4px 10px rgba(26,115,232,0.1); }
+        .step-label { font-weight: bold; color: var(--primary); display: block; margin-bottom: 8px; font-size: 14px; text-transform: uppercase; }
+        select, input[type="file"] { width: 100%; padding: 10px; border: 1px solid #dadce0; border-radius: 5px; font-size: 14px; box-sizing: border-box; cursor: pointer; }
+        
+        .action-bar { text-align: center; padding: 20px; background: #e8f5e9; border-radius: 8px; margin-bottom: 20px; border: 1px solid #c8e6c9;}
+        button { padding: 12px 24px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin: 5px; font-size: 14px; transition: 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        button:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
+        button:active { transform: translateY(0); }
+        .btn-main { background: var(--secondary); color: white; }
+        .btn-copy { background: var(--primary); color: white; }
+        .btn-save { background: var(--warning); color: white; }
+        .btn-clear { background: var(--danger); color: white; }
+        
+        #status { font-weight: bold; margin-top: 15px; font-size: 15px; color: var(--secondary); }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; }
+        th { background: var(--secondary); color: white; padding: 12px; text-align: left; font-size: 15px; position: sticky; top: 0;}
+        td { border-bottom: 1px solid #eee; padding: 12px; font-size: 14px; vertical-align: middle;}
+        tr:hover { background-color: #f5f5f5; }
+        
+        .badge { padding: 5px 12px; border-radius: 12px; color: white; font-weight: bold; display: inline-block; text-align: center; min-width: 20px;}
+        .badge-score { background: var(--primary); }
+        .badge-error { background: var(--danger); }
+        
+        .editable-comment { padding: 8px; border: 1px dashed transparent; border-radius: 4px; transition: 0.2s; line-height: 1.5; }
+        .editable-comment:hover { border-color: #bdbdbd; background: #fafafa; }
+        .editable-comment:focus { border-color: var(--primary); outline: none; background: #fff; }
+        .error-text { color: var(--danger); font-weight: bold; font-style: italic; }
+        
+        .btn-reload { background: #f1f3f4; color: #333; padding: 8px 12px; font-size: 12px; box-shadow: none; border: 1px solid #dadce0;}
+        .btn-reload:hover { background: #e8eaed; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1 class="title-main">Xanh Edu 2.0 - Hệ Thống Nhận Xét Tự Động</h1>
+        <div class="subtitle">Bản quyền: GV. Đặng Minh Đức - Trường Tiểu học A Hoà Bình - Hội An - An Giang</div>
+    </div>
+
+    <div class="step-grid">
+        <div class="step-box">
+            <span class="step-label">BƯỚC 1: TẢI FILE EXCEL VNEDU</span>
+            <input type="file" id="excelFile" accept=".xlsx, .xls" />
+        </div>
+        <div class="step-box">
+            <span class="step-label">BƯỚC 2: CHỌN KHỐI LỚP</span>
+            <select id="gradeSelect" onchange="loadSubjects()">
+                <option value="">-- Chọn Khối --</option>
+                <option value="Lop1">Khối 1 (8 Môn)</option>
+                <option value="Lop2">Khối 2 (8 Môn)</option>
+                <option value="Lop3">Khối 3 (11 Môn)</option>
+                <option value="Lop45">Khối 4 & 5 (12 Môn)</option>
+            </select>
+        </div>
+        <div class="step-box">
+            <span class="step-label">BƯỚC 3: CHỌN MÔN HỌC</span>
+            <select id="subjectSelect">
+                <option value="">-- Chờ Bước 2 --</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="action-bar">
+        <button class="btn-main" onclick="generate()">⚡ TẠO NHẬN XÉT</button>
+        <button class="btn-copy" onclick="copyAll()">📋 COPY LÊN VNEDU</button>
+        <button class="btn-save" onclick="manualSave()">💾 LƯU BỘ NHỚ TẠM</button>
+        <button class="btn-clear" onclick="clearData()">🗑️ XÓA / LÀM LẠI</button>
+        <div id="status">Sẵn sàng! Hãy tải file Excel của thầy lên.</div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th width="5%">STT</th>
+                <th width="20%">Họ và tên</th>
+                <th width="10%">Điểm/Mức</th>
+                <th width="55%">Lời nhận xét môn học (Click để sửa)</th>
+                <th width="10%">Đổi câu</th>
+            </tr>
+        </thead>
+        <tbody id="resultBody">
+            <tr><td colspan="5" style="text-align:center; color:#999; padding: 30px;">Chưa có dữ liệu hiển thị.</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    // ==========================================================
+    // 1. SIÊU KHO DỮ LIỆU NHẬN XÉT (XANH_DB)
+    // ==========================================================
+    const XANH_DB = {
+        "Lop1": {
+            "Toán": { type: 'score', data: {
+                10: ["Em tính toán rất nhanh nhẹn, nắm vững kiến thức phạm vi 100.","Kỹ năng tính nhẩm tốt, làm bài chính xác tuyệt đối.","Em giải toán thông minh, trình bày bài sạch đẹp.","Hoàn thành xuất sắc các phép tính cộng trừ, tư duy tốt.","Nắm chắc kiến thức, thực hiện phép tính nhanh và đúng."],
+                9: ["Em nắm vững kiến thức, trình bày bài sạch sẽ, rõ ràng.","Làm bài chính xác, cẩn thận trong tính toán.","Hiểu bài tốt, kỹ năng thực hiện phép tính thành thạo.","Kết quả học tập rất tốt, có ý thức tự giác cao.","Tính toán nhanh, ít sai sót, trình bày sạch sẽ."],
+                8: ["Hoàn thành tốt các phép tính, nắn nót chữ số.","Nắm vững kiến thức trọng tâm, tính toán cẩn thận.","Thực hiện đúng các phép tính, trình bày bài rõ ràng.","Hiểu cách giải toán, cần kiểm tra bài tránh lỗi nhỏ.","Hoàn thành tốt nhiệm vụ, tiếp thu bài khá nhanh."],
+                7: ["Nắm được bài, tính toán khá chính xác, cần tập trung hơn.","Hoàn thành bài ở mức khá, đặt tính thẳng cột.","Hiểu bài, đôi khi còn nhầm lẫn nhỏ trong tính nhẩm.","Có cố gắng học tập, cần làm bài cẩn thận hơn.","Nắm kiến thức cơ bản, rèn thêm tốc độ tính."],
+                6: ["Đạt yêu cầu, cần rèn thêm kỹ năng tính nhẩm.","Thực hiện phép tính nhưng đôi lúc còn lúng túng.","Cần tập trung nghe giảng để nắm vững cách tính.","Hiểu bài cơ bản, chăm chỉ làm bài tập tại nhà.","Đạt mức trung bình, rèn thêm tính cẩn thận."],
+                5: ["Nỗ lực hơn trong tính toán và bảng cộng trừ.","Kỹ năng thực hiện phép tính chậm, cần rèn luyện.","Bước đầu làm quen toán học, cần hỗ trợ từ gia đình.","Cần ôn tập kỹ để không nhầm lẫn khi làm bài.","Cần tập trung và mạnh dạn phát biểu trong giờ."],
+                4: ["Tính toán còn chậm, hay nhầm lẫn các con số.","Cần tập trung hơn để nắm vững kiến thức cơ bản.","Kỹ năng cộng trừ trong phạm vi 10 còn yếu.","Dành nhiều thời gian luyện tập thêm bài tập ở nhà.","Hay xao nhãng trong giờ học, kết quả chưa cao."],
+                3: ["Kiến thức toán học còn hạn chế, cần cố gắng nhiều.","Chưa thuộc bảng cộng trừ cơ bản, tính toán rất chậm.","Hay làm bài sai, cần sự kèm cặp sát sao của thầy cô.","Cần tập trung và nỗ lực hơn nữa trong môn học.","Khả năng tư duy số học còn yếu, cần rèn luyện thêm."],
+                2: ["Chưa nắm được mặt số, tính toán hay sai lệch nhiều.","Hổng kiến thức cơ bản, cần hỗ trợ đặc biệt từ gia đình.","Kỹ năng làm toán rất yếu, thường xuyên không xong bài.","Cần bắt đầu rèn luyện từ những phép tính đơn giản nhất.","Rất lúng túng khi thực hiện các bài tập trên lớp."],
+                1: ["Kiến thức toán học rất yếu, cần được hướng dẫn lại.","Chưa biết cách thực hiện các phép tính đơn giản nhất.","Khả năng tiếp thu bài rất chậm, cần kiên trì rèn luyện.","Cần sự phối hợp mật thiết giữa gia đình và nhà trường.","Nỗ lực thật nhiều để vượt qua khó khăn trong môn học."]
+            } },
+            "Tiếng việt": { type: 'score', data: {
+                10: ["Đọc trơn lưu loát, to rõ. Viết chữ đúng ô ly, rất đẹp.","Đọc bài tự tin, diễn cảm, chữ viết đều nét.","Nghe viết chính tả chính xác tuyệt đối, không sai lỗi.","Kỹ năng đọc viết xuất sắc, trình bày vở sạch sẽ.","Học tốt môn Tiếng Việt, có vốn từ phong phú."],
+                9: ["Đọc bài tốt, chữ viết ngay ngắn, trình bày sạch đẹp.","Viết đúng chính tả, đọc to, rõ ràng.","Hoàn thành rất tốt phần luyện đọc và viết bài.","Có ý thức giữ vở sạch, chữ đẹp, đọc trơn tru.","Tiếp thu bài nhanh, viết bài cẩn thận, ít sai sót."],
+                8: ["Hoàn thành tốt môn học, cần chú ý khoảng cách con chữ.","Đọc bài trôi chảy, viết chính tả khá tốt.","Có tiến bộ trong môn học, cần giữ vở cẩn thận hơn.","Kỹ năng đọc đạt tốt, cần rèn thêm nét chữ cho đều.","Hiểu nội dung bài đọc, làm bài tập đầy đủ."],
+                7: ["Đọc bài rõ ràng, cần rèn viết đúng độ cao con chữ.","Đọc tốt nhưng tốc độ đọc còn hơi chậm.","Viết bài đạt yêu cầu, thỉnh thoảng sai lỗi dấu thanh.","Có cố gắng luyện đọc, cần rèn thêm kỹ năng viết.","Hiểu bài, cần cẩn thận hơn khi chép chính tả."],
+                6: ["Đạt yêu cầu, cần dành thời gian luyện đọc nhiều hơn.","Đọc bài còn vấp, viết chữ chưa thật đều nét.","Bước đầu đọc trơn được, cần luyện viết chữ nắn nót.","Cần chú ý nghe giảng và rèn luyện thêm ở nhà.","Khả năng nghe viết còn hạn chế, cần cố gắng."],
+                5: ["Nỗ lực rèn chữ và tập đọc trơn thường xuyên hơn.","Lúng túng khi đánh vần, cần gia đình hỗ trợ thêm.","Viết sai nhiều lỗi chính tả, cần luyện tập mỗi ngày.","Kỹ năng đọc viết còn yếu, em nỗ lực nhiều nhé.","Tập trung cao độ hơn trong giờ học Tiếng Việt."],
+                4: ["Đọc bài còn ê a, tốc độ đọc còn rất chậm.","Chữ viết chưa đúng độ cao, trình bày bài chưa sạch.","Sai nhiều lỗi chính tả cơ bản, cần rèn luyện thêm.","Kỹ năng ghép vần còn hạn chế, cần tập trung hơn.","Cần dành nhiều thời gian luyện đọc và viết ở nhà."],
+                3: ["Khả năng đọc và viết rất yếu, cần cố gắng nhiều.","Chưa thuộc hết bảng chữ cái và các dấu thanh.","Hay viết sai chữ, trình bày bài không cẩn thận.","Đọc bài hay bị ngắt quãng, chưa được trơn tru.","Cần sự hỗ trợ nhiệt tình từ thầy cô và gia đình."],
+                2: ["Chưa biết cách ghép vần, đọc bài rất khó khăn.","Kỹ năng viết chữ rất yếu, thường xuyên sai mẫu.","Cần bắt đầu rèn luyện lại từ bảng chữ cái.","Khả năng tiếp thu bài chậm, hay quên kiến thức.","Rất lúng túng trong giờ học môn Tiếng Việt."],
+                1: ["Chưa nắm được mặt chữ, kỹ năng đọc viết rất hạn chế.","Cần được hướng dẫn lại từ những âm, vần cơ bản nhất.","Hổng kiến thức nặng, cần kiên trì luyện tập mỗi ngày.","Phối hợp cùng gia đình để rèn luyện kỹ năng đọc viết.","Nỗ lực thật nhiều để theo kịp chương trình lớp."]
+            } },
+            "Đạo đức": { type: 'level', data: {
+                'T': ["Lễ phép, ngoan ngoãn, thực hiện rất tốt nề nếp lớp học.","Biết chào hỏi, cảm ơn, xin lỗi và nhường nhịn bạn bè.","Luôn chấp hành nội quy, là tấm gương sáng của lớp.","Biết chia sẻ, giúp đỡ bạn bè trong học tập và vui chơi.","Ngoan ngoãn, vâng lời thầy cô, yêu thương gia đình.","Thực hiện tốt các chuẩn mực hành vi đạo đức đã học.","Tích cực tham gia các hoạt động giáo dục đạo đức tại lớp.","Có ý thức tự giác cao trong việc giữ gìn vệ sinh chung."],
+                'H': ["Ngoan, thực hiện được các quy định cơ bản của lớp học.","Biết vâng lời thầy cô, cư xử đúng mực với bạn bè.","Hoàn thành các yêu cầu rèn luyện ở mức đạt.","Biết nói lời cảm ơn, xin lỗi đúng lúc khi cần thiết.","Đoàn kết, nhường nhịn bạn bè khi cùng vui chơi.","Thực hiện đầy đủ các nhiệm vụ học tập theo hướng dẫn.","Có ý thức rèn luyện các hành vi đạo đức cơ bản.","Biết giữ giữ đồ dùng học tập cá nhân sạch sẽ."],
+                'C': ["Cần nỗ lực rèn luyện nề nếp và lắng nghe cô giảng bài.","Cần tập trung hơn trong giờ học giáo dục đạo đức.","Cần hòa đồng và chia sẻ nhiều hơn với các bạn cùng lớp.","Đôi lúc còn chưa tự giác, cần nhắc nhở thực hiện nội quy.","Cần sự đồng hành sát sao từ gia đình để rèn luyện nề nếp.","Chưa mạnh dạn tham gia các hoạt động chung của nhóm.","Hay quên việc thực hiện các lời hứa với thầy cô, bạn bè.","Cần chú ý cách ứng xử lịch sự hơn ở nơi công cộng."]
+            } },
+            "Tự nhiên và xã hội": { type: 'level', data: {
+                'T': ["Ham học hỏi, có kiến thức tốt về các chủ đề tự nhiên.","Kỹ năng quan sát các sự vật, hiện tượng rất tốt và chính xác.","Tích cực, sôi nổi trong các hoạt động tìm hiểu môi trường.","Có ý thức bảo vệ môi trường và sức khỏe bản thân rất tốt.","Trình bày các kết quả quan sát rõ ràng, khoa học.","Vận dụng tốt kiến thức đã học vào thực tế.","Yêu quý thiên nhiên và có ý thức chăm sóc cây xanh.","Nhận biết nhanh các mối quan hệ xã hội trong gia đình."],
+                'H': ["Nắm được các kiến thức trọng tâm về tự nhiên xã hội.","Thực hiện được các bước quan sát dưới sự hướng dẫn.","Có ý thức giữ gìn vệ sinh cá nhân, hoàn thành bài ở mức đạt.","Biết cách phòng tránh một số bệnh thông thường.","Hoàn thành đầy đủ các bài tập và có ý thức tìm hiểu quê hương.","Nhận biết được các bộ phận của cơ thể và bảo vệ sức khỏe.","Thực hiện đúng quy định về an toàn khi ở nhà và ở trường.","Nêu được tên các con vật và cây trồng quen thuộc xung quanh."],
+                'C': ["Kỹ năng quan sát hiện tượng tự nhiên còn hạn chế, rèn thêm.","Chưa tập trung lắng nghe giảng bài, ghi nhớ lúng túng.","Vận dụng kiến thức bài học vào đời sống còn chậm.","Cần sự nhắc nhở từ gia đình để nắm vững quy tắc an toàn.","Cần dành nhiều thời gian ôn tập để theo kịp chương trình.","Chưa nhận diện được hết các biển báo giao thông cơ bản.","Cần tích cực hơn trong các hoạt động trải nghiệm thực tế.","Khả năng diễn đạt về các sự vật hiện tượng còn yếu."]
+            } },
+            "Nghệ thuật (Âm nhạc)": { type: 'level', data: {
+                'T': ["Hát đúng giai điệu, lời ca rõ ràng, phong cách biểu diễn tự tin.","Năng khiếu âm nhạc tốt, cảm thụ nhịp điệu và gõ đệm chính xác.","Hào hứng tham gia, biết vận động phụ họa sáng tạo.","Giọng hát hay, truyền cảm; nắm vững các bài tập đọc nhạc.","Hoàn thành xuất sắc môn học, gương mẫu trong sinh hoạt văn nghệ.","Thể hiện bài hát một cách tự nhiên, giàu cảm xúc.","Biết kết hợp các động tác hình thể nhịp nhàng khi ca hát.","Phân biệt được độ cao, thấp, dài, ngắn của âm thanh tốt."],
+                'H': ["Thuộc lời bài hát, hát đúng nhạc, hoàn thành tốt nhiệm vụ.","Thực hiện được các động tác vận động phụ họa cơ bản.","Nắm được nhịp điệu, cần mạnh dạn hơn khi biểu diễn.","Tham gia đầy đủ hoạt động ca hát, cần hát to và rõ lời hơn.","Có sự cố gắng, bước đầu biết cảm nhận và nhún nhảy theo nhạc.","Biết cách gõ đệm theo nhịp, phách theo hướng dẫn.","Nắm được nội dung bài hát và ý nghĩa giai điệu đơn giản.","Biết giữ gìn và sử dụng nhạc cụ gõ đệm đúng cách."],
+                'C': ["Chưa nhớ kĩ lời bài hát và giai điệu, luyện tập thêm tại nhà.","Cảm thụ âm nhạc còn hạn chế, gõ đệm theo nhịp chưa chính xác.","Còn nhút nhát, chưa tích cực tham gia ca hát và vận động.","Hát còn nhỏ, chưa đúng nhạc, cần sự khích lệ tỉ mỉ hơn.","Thực hành âm nhạc lúng túng, em cần thả lỏng tự nhiên hơn.","Chưa tập trung lắng nghe hướng dẫn về các ký hiệu âm nhạc.","Cần dành nhiều thời gian hơn để làm quen với bài hát mới.","Hay làm việc riêng, không chú ý gõ đệm cùng các bạn."]
+            } },
+            "Nghệ thuật (Mĩ thuật)": { type: 'level', data: {
+                'T': ["Vẽ tranh rất sáng tạo, màu sắc hài hòa, bố cục cân đối.","Thể hiện ý tưởng độc đáo qua nét vẽ, phối hợp màu sắc sinh động.","Năng khiếu mĩ thuật cao, sản phẩm tạo hình đạt thẩm mĩ.","Sử dụng loại màu vẽ linh hoạt, trình bày sản phẩm sạch sẽ.","Tích cực khám phá và hào hứng thực hiện chủ đề mới lạ.","Sản phẩm có nét vẽ bay bổng, phối màu sắc nghệ thuật.","Biết cách sắp xếp hình mảng và đường nét thông minh.","Rất khéo léo trong các bài tập thủ công, cắt dán."],
+                'H': ["Vẽ được hình dáng sự vật theo yêu cầu, tô màu phù hợp.","Nắm kiến thức cơ bản về bố cục và màu sắc, hoàn thành đúng giờ.","Ý thức học tập tốt, thực hiện các bước theo hướng dẫn.","Vẽ tranh đúng chủ đề, thỉnh thoảng cần chú ý tô màu đậm hơn.","Sử dụng dụng cụ mĩ thuật an toàn, sản phẩm đạt yêu cầu.","Biết nhận xét và nêu được cảm nhận về sản phẩm của mình.","Trình bày bài thực hành rõ ràng, không để màu lem ra ngoài.","Có ý thức giữ gìn vệ sinh lớp học sau giờ mĩ thuật."],
+                'C': ["Kỹ năng vẽ hình và phối màu lúng túng, rèn thêm khéo léo.","Chưa hoàn thành sản phẩm đúng thời gian, cần tập trung hơn.","Bố cục tranh rời rạc, chú ý quan sát mẫu và hướng dẫn kỹ.","Tô màu còn lem nhem và chưa kín hình, rèn tính kiên trì.","Còn rụt rè, chưa mạnh dạn thể hiện suy nghĩ qua sản phẩm.","Hay quên mang đồ dùng học tập phục vụ giờ thực hành.","Cần nỗ lực hơn trong việc sáng tạo các hình khối cơ bản.","Chưa thực hiện đúng các bước cắt dán theo giáo viên mẫu."]
+            } },
+            "Hoạt động trải nghiệm": { type: 'level', data: {
+                'T': ["Rất tích cực, chủ động trong hoạt động tập thể, trách nhiệm cao.","Kỹ năng làm việc nhóm xuất sắc, biết lắng nghe hỗ trợ bạn bè.","Thể hiện sự sáng tạo và tự tin khi tham gia trải nghiệm.","Kỹ năng tự phục vụ tốt, biết sắp xếp đồ dùng cá nhân khoa học.","Nhanh nhẹn xử lý tình huống thực tế đơn giản, cầu tiến.","Luôn đi đầu trong các phong trào văn nghệ và hoạt động trường.","Có ý thức chấp hành nề nếp kỷ luật và quy định cực tốt.","Giao tiếp lễ phép, tự tin bày tỏ ý kiến trước đám đông."],
+                'H': ["Tham gia đầy đủ các hoạt động trải nghiệm, hoàn thành nhiệm vụ.","Ý thức rèn luyện kỹ năng sống, phối hợp tốt cùng bạn.","Nắm được yêu cầu nề nếp, nỗ lực thực hiện các quy định.","Thực hiện công việc tự phục vụ cơ bản, cần tự giác hơn.","Tiến bộ trong việc tham gia phong trào, chủ động thảo luận.","Biết yêu quý người thân trong gia đình, thầy cô và bạn bè.","Tham gia tốt các buổi sinh hoạt dưới cờ và sinh hoạt lớp.","Có ý thức giữ gìn sách vở và đồ dùng cá nhân ngăn nắp."],
+                'C': ["Còn thụ động, chưa tích cực tham gia hoạt động cùng bạn.","Kỹ năng tự phục vụ còn hạn chế, cần sự nhắc nhở từ cô giáo.","Chưa tập trung trong giờ hoạt động chung, hay xao nhãng.","Cần mạnh dạn, tự tin hơn khi tham gia trò chơi tập thể.","Cần sự khích lệ để vượt qua nhút nhát, hoàn thành yêu cầu.","Kỹ năng xử lý các tình huống giao tiếp cơ bản còn lúng túng.","Chưa tự giác thực hiện công việc lao động vệ sinh tại lớp.","Hay làm việc riêng trong lúc các bạn đang thảo luận nhóm."]
+            } },
+            "Giáo dục thể chất": { type: 'level', data: {
+                'T': ["Thực hiện động tác chính xác, nhanh nhẹn, tư thế vận động đẹp.","Nắm vững kỹ thuật đội hình đội ngũ, khẩu lệnh dứt khoát.","Thể lực tốt, luôn năng nổ dẫn đầu trong các trò chơi.","Thực hiện bài thể dục phát triển chung nhịp nhàng, đúng nhịp.","Hoàn thành xuất sắc nội dung học tập, có khiếu thể thao.","Có ý thức kỷ luật sân tập rất tốt, luôn hỗ trợ bạn tập.","Nhanh nhẹn, linh hoạt trong các bài tập phối hợp vận động.","Sức bền tốt, duy trì tinh thần tập luyện tích cực đến cuối."],
+                'H': ["Thực hiện đúng động tác cơ bản, hoàn thành tốt bài tập.","Ý thức tập luyện tích cực, nghiêm túc, chấp hành nội quy.","Tham gia đầy đủ trò chơi vận động, thực hiện nhiệm vụ mức đạt.","Phối hợp tốt với bạn bè trong hoạt động rèn luyện và trò chơi.","Tinh thần thể thao tốt, hoàn thành đầy đủ nhiệm vụ môn học.","Nắm được các quy định an toàn khi tham gia tập luyện sân.","Thực hiện được các bài thể dục theo đúng nhịp đếm của thầy.","Biết giữ gìn vệ sinh trang phục và giày tập đúng quy định."],
+                'C': ["Thực hiện động tác vận động lúng túng, rèn luyện thêm ở nhà.","Thể lực còn yếu, rèn thói quen tập thể dục thường xuyên.","Thiếu tập trung giờ học, thường thực hiện sai động tác.","Kỹ năng phối hợp vận động chậm, cần sự hỗ trợ, nhắc nhở.","Cần phối hợp cùng gia đình để khích lệ em tích cực vận động.","Còn nhút nhát, không dám tham gia trò chơi vận động mạnh.","Hay bỏ dở bài tập giữa chừng do sức bền chưa tốt, cố gắng thêm.","Chú ý lắng nghe khẩu lệnh để thực hiện đúng bước chuyển hàng."]
+            } }
+        },
+        "Lop2": {
+            "Toán": { type: 'score', data: {
+                10: ["Tính nhanh, nắm vững bảng nhân chia, giải toán khoa học.","Tư duy tốt, thực hiện chính xác các phép tính có nhớ.","Kỹ năng giải toán có lời văn rất tốt, trình bày bài khoa học.","Nắm chắc kiến thức về hình học và đo lường, làm bài xuất sắc.","Em hiểu bài sâu, tính toán cẩn thận và luôn đạt kết quả tối đa."],
+                9: ["Em nắm vững kiến thức, kỹ năng tính nhẩm và thực hiện rất tốt.","Làm bài chính xác, trình bày rõ ràng, phát huy thêm tính sáng tạo.","Hiểu và vận dụng tốt các bảng nhân, chia đã học vào bài tập.","Kết quả học tập rất tốt, có ý thức tự giác cao trong giờ Toán.","Tính toán nhanh, ít sai sót, trình bày bài làm sạch sẽ, ngăn nắp."],
+                8: ["Em nắm được kiến thức trọng tâm, thực hiện đúng các phép tính.","Kỹ năng tính toán đạt mức tốt, cần kiểm tra kỹ tránh lỗi nhỏ.","Hiểu cách giải toán có lời văn, trình bày bài rõ ràng, dễ nhìn.","Hoàn thành tốt các nhiệm vụ học tập, nắm chắc đơn vị đo lường.","Có tiến bộ trong học tập, duy trì sự tập trung để đạt kết quả cao."],
+                7: ["Em hiểu bài và thực hiện được các phép tính, đôi khi còn nhầm lẫn.","Nắm được bảng nhân chia nhưng tốc độ tính toán cần rèn thêm.","Hoàn thành bài ở mức khá, đặt tính thẳng cột theo đúng quy định.","Biết cách giải toán có lời văn, rèn thêm kỹ năng phân tích đề.","Ý thức học tập tốt, cần cẩn thận hơn trong việc tính toán số liệu."],
+                6: ["Em đạt yêu cầu môn học, nỗ lực rèn luyện thêm bảng cửu chương.","Thực hiện được phép tính cộng, trừ có nhớ nhưng còn lúng túng.","Cần tập trung hơn khi nghe giảng để nắm vững quy trình giải toán.","Kỹ năng tính toán cơ bản ổn định, cần chú ý giữ vở sạch đẹp hơn.","Em hiểu bài ở mức cơ bản, hãy chăm chỉ làm thêm bài tập tại nhà."],
+                5: ["Hoàn thành nội dung ở mức cơ bản, cần nỗ lực nhiều hơn trong tính toán.","Kỹ năng thực hiện phép tính nhân, chia còn chậm, cần rèn luyện thêm.","Bước đầu biết giải toán có lời văn, cần sự hỗ trợ từ giáo viên.","Cần ôn tập kỹ các bảng tính đã học để không bị nhầm lẫn khi làm bài.","Cần tập trung hơn và tích cực phát biểu xây dựng bài trong giờ học."],
+                4: ["Tính toán còn rất chậm, hay quên quy tắc cộng trừ có nhớ.","Chưa thuộc các bảng nhân, chia cơ bản, cần nỗ lực luyện tập nhiều.","Hay xao nhãng trong giờ học, làm bài còn sai sót nhiều lỗi cơ bản.","Kỹ năng giải toán có lời văn còn yếu, chưa biết cách phân tích đề.","Dành nhiều thời gian luyện tập thêm bài tập ở nhà để tiến bộ."],
+                3: ["Kiến thức toán học còn nhiều lỗ hổng, tiếp thu bài rất khó khăn.","Tính toán hay sai lệch nhiều, chưa biết cách đặt tính thẳng cột.","Rất lúng túng khi thực hiện các bài tập tính toán trên lớp.","Em cần nỗ lực thật nhiều và tập trung nghe giảng để tiến bộ.","Chưa hoàn thành các bài tập toán theo yêu cầu của giáo viên."],
+                2: ["Hổng kiến thức toán học cơ bản, cần được hướng dẫn lại từ đầu.","Chưa nắm vững bảng cửu chương và các quy tắc tính toán đơn giản.","Kỹ năng làm toán rất yếu, thường xuyên không hoàn thành bài tập.","Cần sự hỗ trợ đặc biệt và kiên trì rèn luyện mỗi ngày từ gia đình.","Hay nhầm lẫn các con số và dấu tính, cần nỗ lực vượt qua khó khăn."],
+                1: ["Năng lực toán học rất hạn chế, cần rèn luyện lại từ những bước đầu.","Chưa thực hiện được các phép tính cộng trừ đơn giản nhất.","Khả năng tiếp thu bài rất chậm, cần lộ trình hỗ trợ riêng biệt.","Phối hợp chặt cùng nhà trường để giúp em nắm bắt kiến thức cơ bản.","Em nỗ lực thật nhiều để không bị bỏ lại quá xa so với chương trình."]
+            } },
+            "Tiếng việt": { type: 'score', data: {
+                10: ["Em đọc trôi chảy, diễn cảm. Viết đoạn văn sinh động, dùng từ hay.","Chữ viết đẹp, đúng ô ly, trình bày bài sạch sẽ và rất khoa học.","Kỹ năng đọc hiểu tốt, nắm vững các quy tắc về từ và câu.","Nghe - viết chính tả chính xác, không mắc lỗi, hoàn thành xuất sắc.","Em có vốn từ phong phú, diễn đạt trôi chảy và giàu cảm xúc."],
+                9: ["Em đọc to, rõ ràng, tốc độ đọc tốt. Bài viết chữ ngay ngắn, sạch đẹp.","Viết đoạn văn đúng yêu cầu, câu văn mạch lạc và đủ ý.","Nắm vững kiến thức môn học, thực hiện tốt bài luyện từ và câu.","Kỹ năng nghe - viết tốt, rất ít khi sai lỗi chính tả, trình bày cẩn thận.","Em tích cực tương tác trong giờ học, hoàn thành bài làm chất lượng."],
+                8: ["Em đọc bài trôi chảy, lưu loát. Chữ viết cẩn thận, đúng quy định.","Viết đoạn văn đủ ý, cần chú ý sử dụng thêm từ ngữ gợi tả sinh động.","Hoàn thành tốt các nội dung học tập, có ý thức giữ sách vở sạch sẽ.","Kỹ năng đọc hiểu đạt mức tốt, rèn luyện thêm cách diễn đạt trôi chảy.","Có tiến bộ rõ rệt trong việc rèn chữ và viết chính tả, cần phát huy."],
+                7: ["Em đọc bài rõ ràng nhưng tốc độ cần nhanh hơn chút nữa.","Chữ viết tương đối đều nét, đôi khi còn mắc lỗi chính tả dấu thanh.","Viết được đoạn văn ngắn theo yêu cầu, cần chú ý cách dùng từ đặt câu.","Hiểu nội dung bài đọc, tích cực phát biểu đóng góp ý kiến trong lớp.","Nắm được kiến thức cơ bản, cẩn thận hơn khi trình bày bài viết."],
+                6: ["Em đọc bài đạt yêu cầu về tốc độ. Khi viết chú ý khoảng cách các chữ.","Kỹ năng viết đoạn văn còn đơn giản, luyện diễn đạt ý rõ ràng hơn.","Nắm kiến thức ở mức cơ bản, thỉnh thoảng còn nhầm lẫn khi nghe - viết.","Cần rèn thêm kỹ năng đọc hiểu và vốn từ vựng thông qua đọc sách.","Đạt yêu cầu môn học, hãy nỗ lực để chữ viết được đẹp và đều hơn."],
+                5: ["Kỹ năng đọc và viết cần được rèn luyện nhiều hơn để theo kịp lớp.","Em còn mắc lỗi khi viết chính tả, cần sự hỗ trợ ôn tập từ gia đình.","Viết đoạn văn còn lúng túng, dành thời gian luyện tập đặt câu đơn giản.","Em cần chú ý lắng nghe giảng và chăm chỉ luyện đọc mỗi ngày tại nhà.","Bước đầu thực hiện được yêu cầu môn học, cố gắng hơn để tiến bộ."],
+                4: ["Đọc bài còn ê a, chưa đảm bảo tốc độ đọc theo yêu cầu.","Chữ viết còn chưa cẩn thận, trình bày bài làm chưa sạch đẹp.","Viết đoạn văn còn rời rạc, chưa biết cách dùng từ kết nối ý.","Sai nhiều lỗi chính tả cơ bản khi nghe viết trên lớp.","Dành nhiều thời gian luyện đọc và viết bài tập tại nhà."],
+                3: ["Khả năng đọc và viết rất yếu, cần được hỗ trợ và kèm cặp sát sao.","Chưa nắm vững quy tắc viết hoa và các dấu câu căn bản.","Đọc bài hay bị ngắt quãng, chưa hiểu rõ nội dung vừa đọc.","Cần nỗ lực nhiều để cải thiện kỹ năng sử dụng ngôn ngữ của mình.","Viết chữ sai mẫu nhiều, trình bày bài làm chưa đạt yêu cầu."],
+                2: ["Hổng kiến thức tiếng Việt cơ bản, kỹ năng đọc và viết rất hạn chế.","Chưa biết cách viết câu hoàn chỉnh, vốn từ vựng còn nghèo nàn.","Phát âm thường xuyên bị nhầm lẫn, ảnh hưởng đến kỹ năng đọc.","Cần lộ trình rèn luyện lại từ đầu với sự phối hợp của gia đình.","Rất lúng túng khi thực hiện các bài tập Tiếng Việt trên lớp."],
+                1: ["Chưa nắm được mặt chữ và âm vần, năng lực môn học rất yếu.","Cần hướng dẫn lại từ bảng chữ cái và các quy tắc ghép vần đơn giản.","Khả năng tiếp thu bài rất chậm, cần sự kiên trì luyện tập mỗi ngày.","Gia đình cần sát sao hơn trong việc rèn luyện đọc viết tại nhà cho em.","Nỗ lực vượt qua khó khăn để theo kịp chương trình học tập của lớp."]
+            } },
+            "Đạo đức": { type: 'level', data: {
+                'T': ["Lễ phép, ngoan ngoãn, thực hiện tốt chuẩn mực hành vi đạo đức.","Có ý thức tự giác cao, chấp hành nghiêm túc nội quy trường lớp.","Biết quan tâm, chia sẻ và sẵn sàng giúp đỡ bạn bè xung quanh.","Luôn trung thực trong học tập, là tấm gương sáng cho các bạn.","Dũng cảm nhận lỗi và sửa lỗi, có thái độ ứng xử rất văn minh.","Luôn có ý thức giữ gìn vệ sinh chung và bảo vệ của công cộng.","Thực hiện tốt các bài học về lòng biết ơn và sự yêu thương.","Giao tiếp lễ phép với người lớn, nhường nhịn các em nhỏ hơn."],
+                'H': ["Ngoan, biết vâng lời thầy cô và cư xử đúng mực với bạn bè.","Nắm được nội dung bài học, thực hiện được hành vi đạo đức cơ bản.","Có ý thức giữ gìn vệ sinh chung, hoàn thành bài rèn luyện mức đạt.","Biết nói lời cảm ơn, xin lỗi và tham gia tốt hoạt động tập thể.","Có tinh thần đoàn kết, nhường nhịn bạn bè trong giờ học và giờ chơi.","Biết yêu quý người thân và thực hiện các nhiệm vụ được giao phó.","Tự giác hoàn thành các bài tập đạo đức theo hướng dẫn của giáo viên.","Biết bảo quản đồ dùng học tập và giữ gìn môi trường trường lớp."],
+                'C': ["Cần nỗ lực rèn luyện thêm tính tự giác và ý thức chấp hành nội quy.","Vận dụng các bài học ứng xử vào thực tế còn hạn chế, cần nhắc nhở.","Cần học cách quan tâm, chia sẻ và hòa đồng hơn với bạn bè trong lớp.","Đôi lúc còn chưa thật thà, cần rèn luyện tính trung thực và dũng cảm nhận lỗi.","Cần tập trung hơn trong giờ học để hiểu và thực hiện hành vi văn minh.","Hay làm việc riêng, chưa chú ý nghe giảng về bài học đạo đức.","Cần sự đồng hành từ gia đình để rèn luyện thói quen cư xử tốt.","Chưa biết cách tự phục vụ và sắp xếp ngăn nắp đồ dùng cá nhân."]
+            } },
+            "Tự nhiên và xã hội": { type: 'level', data: {
+                'T': ["Ham học hỏi, có kiến thức sâu rộng về các chủ đề tự nhiên và xã hội.","Kỹ năng quan sát và phân tích các sự vật, hiện tượng rất tốt, chính xác.","Tích cực, sôi nổi trong hoạt động khám phá và tìm hiểu môi trường.","Vận dụng linh hoạt kiến thức vào thực tế, bảo vệ sức khỏe rất tốt.","Có ý thức giữ gìn vệ sinh nơi ở, trường lớp và bảo vệ động vật.","Hiểu biết tốt về các cơ quan trong cơ thể và cách phòng tránh bệnh.","Tham gia nhiệt tình các buổi trải nghiệm tìm hiểu về cộng đồng.","Nắm vững các quy tắc an toàn khi sử dụng đồ dùng trong gia đình."],
+                'H': ["Nắm được kiến thức trọng tâm về tự nhiên xã hội theo chương trình.","Thực hiện được các bước quan sát sự vật dưới sự hướng dẫn của cô.","Có ý thức giữ gìn vệ sinh cá nhân và môi trường xung quanh, hoàn thành bài đạt.","Tham gia đầy đủ hoạt động trải nghiệm, hợp tác tốt khi làm việc nhóm.","Hoàn thành đầy đủ các bài tập thực hành và ý thức tìm hiểu quê hương.","Biết cách tự bảo vệ mình trước những tình huống nguy hiểm đơn giản.","Nhận biết được các thành viên trong gia đình và vai trò của từng người.","Có ý thức giữ gìn tài sản chung của nhà trường và nơi công cộng."],
+                'C': ["Kỹ năng quan sát nhận biết hiện tượng tự nhiên hạn chế, rèn luyện thêm.","Chưa tập trung lắng nghe giảng bài, ghi nhớ kiến thức còn lúng túng.","Khả năng vận dụng kiến thức vào thực tế đời sống còn chậm, cần hỗ trợ.","Ý thức tham gia hoạt động khám phá tự nhiên chưa cao, cần được khích lệ.","Cần dành nhiều thời gian ôn tập để theo kịp tiến độ của môn học.","Chưa biết cách phân biệt các loại rác thải để bảo vệ môi trường.","Hay nhầm lẫn về chức năng của các bộ phận trên cơ thể người.","Cần dành thời gian tìm hiểu nhiều hơn về thế giới xung quanh em."]
+            } },
+            "Nghệ thuật (Âm nhạc)": { type: 'level', data: {
+                'T': ["Hát đúng giai điệu, lời ca rõ ràng, phong cách biểu diễn tự tin.","Năng khiếu âm nhạc tốt, cảm thụ nhịp điệu và gõ đệm rất chính xác.","Hào hứng tham gia hoạt động âm nhạc, biết vận động phụ họa sáng tạo.","Thể hiện bài hát rất tự nhiên, kết hợp động tác hình thể nhịp nhàng.","Hoàn thành xuất sắc môn học, gương mẫu trong tiết sinh hoạt văn nghệ.","Giọng hát hay, truyền cảm; nắm vững bài hát và các bài đọc nhạc.","Rất tích cực tham gia biểu diễn trước lớp với phong thái tự tin.","Nhận diện nhanh các âm thanh và nhịp phách trong mỗi bài học."],
+                'H': ["Em thuộc lời bài hát, hát đúng nhạc và hoàn thành tốt nhiệm vụ.","Ý thức học tập tốt, thực hiện được động tác vận động phụ họa cơ bản.","Tham gia đầy đủ hoạt động ca hát lớp, cần hát to và rõ lời hơn nữa.","Biết cách gõ đệm theo nhịp, phách, đôi lúc cần sự hỗ trợ của cô.","Có cố gắng trong giờ học, bước đầu biết nhún nhảy theo giai điệu.","Hoàn thành các bài thực hành âm nhạc ở mức đạt theo yêu cầu.","Biết giữ gìn vệ sinh phòng học và bảo quản nhạc cụ gõ đệm.","Lắng nghe và thực hiện đúng nhịp đếm của thầy cô khi thực hành."],
+                'C': ["Chưa nhớ kĩ lời bài hát và giai điệu, cần dành thêm thời gian luyện tập.","Khả năng cảm thụ âm nhạc hạn chế, gõ đệm theo nhịp chưa chính xác.","Còn nhút nhát, chưa tích cực tham gia ca hát và vận động của lớp.","Kỹ năng thực hành âm nhạc lúng túng, cần thả lỏng và tự nhiên hơn.","Chú ý quan sát và lắng nghe nhiều hơn để cải thiện kỹ năng hát.","Hay quên lời bài hát, cần gia đình hỗ trợ tập luyện thêm ở nhà.","Thực hiện động tác vận động còn cứng, chưa khớp với nhịp điệu nhạc.","Cần nỗ lực vượt qua sự rụt rè để tự tin biểu diễn cùng các bạn."]
+            } },
+            "Nghệ thuật (Mĩ thuật)": { type: 'level', data: {
+                'T': ["Vẽ tranh rất sáng tạo, màu sắc hài hòa và bố cục sản phẩm cân đối.","Thể hiện ý tưởng độc đáo qua nét vẽ, phối hợp màu sắc sinh động.","Có năng khiếu mĩ thuật, các sản phẩm đều đạt độ hoàn thiện cao.","Kỹ năng sử dụng màu vẽ linh hoạt, trình bày sản phẩm sạch sẽ.","Hoàn thành xuất sắc nhiệm vụ, luôn có sáng tạo cá nhân đáng ghi nhận.","Biết cách sử dụng đường nét và hình khối để tạo nên tác phẩm đẹp.","Luôn hào hứng thực hiện các chủ đề mĩ thuật mới lạ một cách tích cực.","Sản phẩm tạo hình bằng đất sét và cắt dán thủ công rất khéo léo."],
+                'H': ["Vẽ được hình dáng các sự vật theo yêu cầu, tô màu phù hợp, sạch sẽ.","Nắm được kiến thức cơ bản về bố cục và màu sắc, hoàn thành đúng giờ.","Có ý thức học tập, thực hiện tốt bước thực hành theo hướng dẫn của cô.","Vẽ tranh đúng chủ đề, thỉnh thoảng cần chú ý tô màu đậm đà hơn.","Tham gia tích cực các tiết học thực hành, trình bày bài rõ ràng.","Biết giữ gìn vệ sinh lớp học và đồ dùng mĩ thuật sau khi sử dụng.","Biết nhận xét và đưa ra cảm nghĩ về sản phẩm mĩ thuật của chính mình.","Sử dụng kéo, hồ dán và đất nặn an toàn, hoàn thành bài mức đạt."],
+                'C': ["Kỹ năng vẽ hình và phối màu còn lúng túng, rèn thêm sự khéo léo.","Chưa hoàn thành sản phẩm mĩ thuật theo thời gian, cần tập trung hơn.","Bố cục tranh rời rạc, cần chú ý quan sát mẫu và hướng dẫn của cô.","Việc tô màu còn lem nhem và chưa kín hình, rèn luyện tính kiên trì.","Chú ý chuẩn bị đầy đủ đồ dùng học tập để tham gia giờ học hiệu quả.","Nét vẽ còn quá nhỏ, tô màu bị gạch xóa nhiều, cần nỗ lực nhiều hơn.","Chưa hoàn thành được các bước cắt dán hình học đơn giản trên lớp.","Cần dành thời gian luyện vẽ thêm ở nhà để theo kịp chương trình."]
+            } },
+            "Hoạt động trải nghiệm": { type: 'level', data: {
+                'T': ["Rất tích cực, chủ động trong hoạt động tập thể, trách nhiệm cao.","Kỹ năng làm việc nhóm xuất sắc, luôn lắng nghe hỗ trợ bạn bè.","Thể hiện sự sáng tạo và tự tin khi tham gia chủ đề trải nghiệm thực tế.","Có kỹ năng tự phục vụ tốt, sắp xếp đồ dùng cá nhân và thời gian khoa học.","Rất nhanh nhẹn xử lý tình huống thực tế đơn giản, có tinh thần cầu tiến.","Biết tự chăm sóc bản thân và thực hiện nề nếp kỷ luật rất tốt.","Giao tiếp lễ phép, tự tin bày tỏ ý kiến cá nhân trong các buổi sinh hoạt.","Luôn đi đầu trong các phong trào thi đua và hoạt động ngoại khóa lớp."],
+                'H': ["Tham gia đầy đủ hoạt động trải nghiệm, hoàn thành tốt nhiệm vụ.","Có ý thức rèn luyện kỹ năng sống, phối hợp tốt cùng bạn trong nhóm.","Nắm được yêu cầu nề nếp, nỗ lực thực hiện các quy định của lớp học.","Biết cách giao tiếp lễ phép, hòa đồng nhưng còn đôi chút rụt rè.","Có tiến bộ khi tham gia phong trào, chủ động hơn khi thảo luận nhóm.","Biết thực hiện các việc làm thể hiện lòng biết ơn với thầy cô, cha mẹ.","Tự giác tham gia vệ sinh trường lớp và giữ gìn cảnh quan sạch đẹp.","Hoàn thành các hoạt động tự phục vụ cơ bản theo hướng dẫn của giáo viên."],
+                'C': ["Còn thụ động, chưa tích cực tham gia hoạt động trải nghiệm cùng bạn.","Kỹ năng tự phục vụ còn hạn chế, cần sự nhắc nhở từ giáo viên.","Chưa tập trung trong giờ hoạt động chung, hay xao nhãng nhiệm vụ nhóm.","Khả năng giao tiếp hợp tác cùng bạn còn lúng túng, cần nỗ lực hòa nhập.","Cần sự khích lệ để vượt qua sự nhút nhát và hoàn thành yêu cầu cơ bản.","Chưa biết cách tự sắp xếp đồ dùng cá nhân và góc học tập ngăn nắp.","Hay làm việc riêng, không chú ý thực hiện các nội quy của lớp học.","Cần rèn luyện thêm kỹ năng lắng nghe và tôn trọng ý kiến tập thể."]
+            } },
+            "Giáo dục thể chất": { type: 'level', data: {
+                'T': ["Em thực hiện các động tác rất chính xác, nhanh nhẹn, tư thế vận động đẹp.","Nắm vững kỹ thuật đội hình đội ngũ, khẩu lệnh dứt khoát và chuẩn xác.","Thể lực tốt, luôn năng nổ và dẫn đầu trong các trò chơi vận động lớp.","Luôn có ý thức kỷ luật cao trên sân tập, thực hiện đúng quy định an toàn.","Hoàn thành xuất sắc nội dung học tập, thể hiện khiếu thể thao vượt trội.","Nhanh nhẹn, linh hoạt trong phối hợp vận động và xử lý tình huống.","Thực hiện bài thể dục phát triển chung đều, đúng nhịp và rất nhịp nhàng.","Sức bền tốt, duy trì được tinh thần tích cực trong suốt giờ học."],
+                'H': ["Em thực hiện đúng các động tác cơ bản, hoàn thành tốt các bài tập thể lực.","Có ý thức tập luyện tích cực, học tập nghiêm túc và chấp hành nội quy.","Tham gia đầy đủ các trò chơi vận động, thực hiện nhiệm vụ mức đạt.","Phối hợp tốt với bạn bè trong các hoạt động rèn luyện và trò chơi.","Tinh thần thể thao tốt, hoàn thành đầy đủ nhiệm vụ giáo dục thể chất.","Biết cách chuẩn bị trang phục thể thao đúng quy định khi ra sân tập.","Nắm vững các quy định an toàn để phòng tránh chấn thương khi vận động.","Biết tập hợp hàng ngũ và thực hiện các động tác quay tại chỗ theo lệnh."],
+                'C': ["Em thực hiện các động tác vận động còn lúng túng, cần rèn luyện thêm tại nhà.","Thể lực còn yếu, cần rèn thói quen tập thể dục thường xuyên để khỏe hơn.","Còn thiếu tập trung giờ học, thường thực hiện sai động tác đội hình.","Kỹ năng phối hợp vận động còn chậm, cần sự hỗ trợ từ giáo viên.","Cần sự phối hợp cùng gia đình khích lệ em tích cực vận động hơn.","Hay mệt mỏi, chưa đủ sức bền để hoàn thành trọn vẹn các bài tập.","Thực hiện bài thể dục còn sai nhịp, chưa thuộc hết các động tác.","Còn nhút nhát, chưa dám tham gia vào các trò chơi vận động cùng bạn."]
+            } }
+        },
+        "Lop3": {
+            "Toán": { type: 'score', data: {
+                10: ["Tính nhanh, nắm vững bảng nhân chia, giải toán khoa học.","Tư duy tốt, thực hiện chính xác các phép tính có nhớ.","Kỹ năng giải toán có lời văn rất tốt, trình bày bài khoa học.","Nắm chắc kiến thức về hình học và đo lường, làm bài xuất sắc.","Em hiểu bài sâu, tính toán cẩn thận và luôn đạt kết quả tối đa."],
+                9: ["Em nắm vững kiến thức, kỹ năng tính nhẩm và thực hiện rất tốt.","Làm bài chính xác, trình bày rõ ràng, phát huy thêm tính sáng tạo.","Hiểu và vận dụng tốt các bảng nhân, chia đã học vào bài tập.","Kết quả học tập rất tốt, có ý thức tự giác cao trong giờ Toán.","Tính toán nhanh, ít sai sót, trình bày bài làm sạch sẽ, ngăn ngắt."],
+                8: ["Em nắm được kiến thức trọng tâm, thực hiện đúng các phép tính.","Kỹ năng tính toán đạt mức tốt, cần kiểm tra kỹ tránh lỗi nhỏ.","Hiểu cách giải toán có lời văn, trình bày bài rõ ràng, dễ nhìn.","Hoàn thành tốt các nhiệm vụ học tập, nắm chắc đơn vị đo lường.","Có tiến bộ trong học tập, duy trì sự tập trung để đạt kết quả cao."],
+                7: ["Em hiểu bài và thực hiện được các phép tính, đôi khi còn nhầm lẫn.","Nắm được bảng nhân chia nhưng tốc độ tính toán cần rèn thêm.","Hoàn thành bài ở mức khá, đặt tính thẳng cột theo đúng quy định.","Biết cách giải toán có lời văn, rèn thêm kỹ năng phân tích đề.","Ý thức học tập tốt, cần cẩn thận hơn trong việc tính toán số liệu."],
+                6: ["Em đạt yêu cầu môn học, nỗ lực rèn luyện thêm bảng cửu chương.","Thực hiện được phép tính cộng, trừ có nhớ nhưng còn lúng túng.","Cần tập trung hơn khi nghe giảng để nắm vững quy trình giải toán.","Kỹ năng tính toán cơ bản ổn định, cần chú ý giữ vở sạch đẹp hơn.","Em hiểu bài ở mức cơ bản, hãy chăm chỉ làm thêm bài tập tại nhà."],
+                5: ["Hoàn thành nội dung ở mức cơ bản, cần nỗ lực nhiều hơn trong tính toán.","Kỹ năng thực hiện phép tính nhân, chia còn chậm, cần rèn luyện thêm.","Bước đầu biết giải toán có lời văn, cần sự hỗ trợ từ giáo viên.","Cần ôn tập kỹ các bảng tính đã học để không bị nhầm lẫn khi làm bài.","Cần tập trung hơn và tích cực phát biểu xây dựng bài trong giờ học."],
+                4: ["Tính toán còn rất chậm, hay quên quy tắc cộng trừ có nhớ.","Chưa thuộc các bảng nhân, chia cơ bản, cần nỗ lực luyện tập nhiều.","Hay xao nhãng trong giờ học, làm bài còn sai sót nhiều lỗi cơ bản.","Kỹ năng giải toán có lời văn còn yếu, chưa biết cách phân tích đề.","Dành nhiều thời gian luyện tập thêm bài tập ở nhà để tiến bộ."],
+                3: ["Kiến thức toán học còn nhiều lỗ hổng, tiếp thu bài rất khó khăn.","Tính toán hay sai lệch nhiều, chưa biết cách đặt tính thẳng cột.","Rất lúng túng khi thực hiện các bài tập tính toán trên lớp.","Em cần nỗ lực thật nhiều và tập trung nghe giảng để tiến bộ.","Chưa hoàn thành các bài tập toán theo yêu cầu của giáo viên."],
+                2: ["Hổng kiến thức toán học cơ bản, cần được hướng dẫn lại từ đầu.","Chưa nắm vững bảng cửu chương và các quy tắc tính toán đơn giản.","Kỹ năng làm toán rất yếu, thường xuyên không hoàn thành bài tập.","Cần sự hỗ trợ đặc biệt và kiên trì rèn luyện mỗi ngày từ gia đình.","Hay nhầm lẫn các con số và dấu tính, cần nỗ lực vượt qua khó khăn."],
+                1: ["Năng lực toán học rất hạn chế, cần rèn luyện lại từ những bước đầu.","Chưa thực hiện được các phép tính cộng trừ đơn giản nhất.","Khả năng tiếp thu bài rất chậm, cần lộ trình hỗ trợ riêng biệt.","Phối hợp chặt chẽ cùng nhà trường để giúp em nắm bắt kiến thức cơ bản.","Em nỗ lực thật nhiều để không bị bỏ lại quá xa so với chương trình."]
+            } },
+            "Tiếng việt": { type: 'score', data: {
+                10: ["Em đọc trôi chảy, diễn cảm. Viết đoạn văn sinh động, dùng từ hay.","Chữ viết đẹp, đúng ô ly, trình bày bài sạch sẽ và rất khoa học.","Kỹ năng đọc hiểu tốt, nắm vững các quy tắc về từ và câu.","Nghe - viết chính tả chính xác, không mắc lỗi, hoàn thành xuất sắc.","Em có vốn từ phong phú, diễn đạt trôi chảy và giàu cảm xúc."],
+                9: ["Em đọc to, rõ ràng, tốc độ đọc tốt. Bài viết chữ ngay ngắn, sạch đẹp.","Viết đoạn văn đúng yêu cầu, câu văn mạch lạc và đủ ý.","Nắm vững kiến thức môn học, thực hiện tốt bài luyện từ và câu.","Kỹ năng nghe - viết tốt, rất ít khi sai lỗi chính tả, trình bày cẩn thận.","Em tích cực tương tác trong giờ học, hoàn thành bài làm chất lượng."],
+                8: ["Em đọc bài trôi chảy, lưu loát. Chữ viết cẩn thận, đúng quy định.","Viết đoạn văn đủ ý, cần chú ý sử dụng thêm từ ngữ gợi tả sinh động.","Hoàn thành tốt các nội dung học tập, có ý thức giữ sách vở sạch sẽ.","Kỹ năng đọc hiểu đạt mức tốt, rèn luyện thêm cách diễn đạt trôi chảy.","Có tiến bộ rõ rệt trong việc rèn chữ và viết chính tả, cần phát huy."],
+                7: ["Em đọc bài rõ ràng nhưng tốc độ cần nhanh hơn chút nữa.","Chữ viết tương đối đều nét, đôi khi còn mắc lỗi chính tả dấu thanh.","Viết được đoạn văn ngắn theo yêu cầu, cần chú ý cách dùng từ đặt câu.","Hiểu nội dung bài đọc, tích cực phát biểu đóng góp ý kiến trong lớp.","Nắm được kiến thức cơ bản, cẩn thận hơn khi trình bày bài viết."],
+                6: ["Em đọc bài đạt yêu cầu về tốc độ. Khi viết chú ý khoảng cách các chữ.","Kỹ năng viết đoạn văn còn đơn giản, luyện diễn đạt ý rõ ràng hơn.","Nắm kiến thức ở mức cơ bản, thỉnh thoảng còn nhầm lẫn khi nghe - viết.","Cần rèn thêm kỹ năng đọc hiểu và vốn từ vựng thông qua đọc sách.","Đạt yêu cầu môn học, hãy nỗ lực để chữ viết được đẹp và đều hơn."],
+                5: ["Kỹ năng đọc và viết cần được rèn luyện nhiều hơn để theo kịp lớp.","Em còn mắc lỗi khi viết chính tả, cần sự hỗ trợ ôn tập từ gia đình.","Viết đoạn văn còn lúng túng, dành thời gian luyện tập đặt câu đơn giản.","Em cần chú ý lắng nghe giảng và chăm chỉ luyện đọc mỗi ngày tại nhà.","Bước đầu thực hiện được yêu cầu môn học, cố gắng hơn để tiến bộ."],
+                4: ["Đọc bài còn ê a, chưa đảm bảo tốc độ đọc theo yêu cầu.","Chữ viết còn chưa cẩn thận, trình bày bài làm chưa sạch đẹp.","Viết đoạn văn còn rời rạc, chưa biết cách dùng từ kết nối ý.","Sai nhiều lỗi chính tả cơ bản khi nghe viết trên lớp.","Dành nhiều thời gian luyện đọc và viết bài tập tại nhà."],
+                3: ["Khả năng đọc và viết rất yếu, cần được hỗ trợ và kèm cặp sát sao.","Chưa nắm vững quy tắc viết hoa và các dấu câu căn bản.","Đọc bài hay bị ngắt quãng, chưa hiểu rõ nội dung vừa đọc.","Cần nỗ lực nhiều để cải thiện kỹ năng sử dụng ngôn ngữ của mình.","Viết chữ sai mẫu nhiều, trình bày bài làm chưa đạt yêu cầu."],
+                2: ["Hổng kiến thức tiếng Việt cơ bản, kỹ năng đọc và viết rất hạn chế.","Chưa biết cách viết câu hoàn chỉnh, vốn từ vựng còn nghèo nàn.","Phát âm thường xuyên bị nhầm lẫn, ảnh hưởng đến kỹ năng đọc.","Cần lộ trình rèn luyện lại từ đầu với sự phối hợp của gia đình.","Rất lúng túng khi thực hiện các bài tập Tiếng Việt trên lớp."],
+                1: ["Chưa nắm được mặt chữ và âm vần, năng lực môn học rất yếu.","Cần hướng dẫn lại từ bảng chữ cái và các quy tắc ghép vần đơn giản.","Khả năng tiếp thu bài rất chậm, cần sự kiên trì luyện tập mỗi ngày.","Gia đình cần sát sao hơn trong việc rèn luyện đọc viết tại nhà cho em.","Nỗ lực vượt qua khó khăn để theo kịp chương trình học tập của lớp."]
+            } },
+            "Ngoại ngữ": { type: 'score', data: {
+                10: ["Phát âm tiếng Anh rất chuẩn, phản xạ ngôn ngữ nhanh nhẹn, tự tin.","Vốn từ vựng phong phú, sử dụng linh hoạt các mẫu câu đã học.","Hoàn thành xuất sắc kỹ năng nghe, nói, đọc, viết trong giờ học.","Tiếp thu bài nhanh, luôn tích cực tham gia các trò chơi ngôn ngữ.","Kỹ năng giao tiếp tiếng Anh vượt trội, giọng đọc tự nhiên và hay."],
+                9: ["Nắm chắc từ vựng và cấu trúc câu, phát âm to, rõ ràng, chính xác.","Kỹ năng nghe hiểu tốt, thực hiện đúng yêu cầu của giáo viên.","Làm bài tập đầy đủ, chữ viết từ vựng đẹp và trình bày sạch sẽ.","Tự tin phát biểu và tham gia thảo luận nhóm tích cực bằng tiếng Anh.","Kết quả học tập rất tốt, có ý thức tự giác rèn luyện thêm tại nhà."],
+                8: ["Nắm vững kiến thức trọng tâm, ghi nhớ tốt từ vựng theo chủ đề.","Kỹ năng nghe và nói đạt mức khá tốt, cần phát huy sự tự tin hơn.","Thực hiện đúng mẫu câu giao tiếp đơn giản, làm bài cẩn thận.","Hiểu bài và hoàn thành đầy đủ nhiệm vụ học tập môn Ngoại ngữ.","Có tiến bộ rõ rệt trong việc học từ mới, duy trì phong độ tốt."],
+                7: ["Hiểu bài và phản hồi câu hỏi đơn giản, phát âm rõ ràng.","Nắm được vốn từ vựng cơ bản, thỉnh thoảng còn lúng túng khi nói.","Kỹ năng viết từ vựng đạt yêu cầu, chú ý hơn về mặt chính tả.","Hoàn thành bài mức khá, cần tích cực tham gia tương tác lớp.","Có ý thức học tập, rèn luyện kỹ năng đọc trôi chảy đoạn văn."],
+                6: ["Đạt yêu cầu môn học, nỗ lực ghi nhớ từ vựng và cấu trúc nhiều hơn.","Phát âm chưa chuẩn, cần chú ý lắng nghe giáo viên hướng dẫn.","Bước đầu làm quen ngoại ngữ, cần khích lệ để mạnh dạn nói.","Kỹ năng nghe còn hạn chế, dành thời gian luyện tập thêm tại nhà.","Hoàn thành nội dung mức cơ bản, cần tập trung hơn trong giờ."],
+                5: ["Nỗ lực để theo kịp chương trình, rèn luyện từ vựng mỗi ngày.","Kỹ năng nghe nói còn chậm, cần sự hỗ trợ kèm cặp từ gia đình.","Hay quên từ mới, cần thực hành lặp lại nhiều lần để nhớ lâu.","Tập trung hơn và mạnh dạn tham gia hoạt động ngôn ngữ lớp.","Bước đầu nắm được một số từ vựng đơn giản, cố gắng nhiều hơn."],
+                4: ["Vốn từ vựng hạn chế, phát âm sai nhiều từ tiếng Anh cơ bản.","Chưa nắm vững các cấu trúc câu giao tiếp đơn giản nhất.","Hay xao nhãng trong giờ học, kết quả kiểm tra còn chưa cao.","Kỹ năng nghe nói yếu, cần rèn luyện lại từ kiến thức nền tảng.","Dành nhiều thời gian hơn cho môn học này để không bị mất gốc."],
+                3: ["Kiến thức ngoại ngữ còn yếu, tiếp thu bài mới rất khó khăn.","Chưa thuộc các từ vựng căn bản, kỹ năng viết từ còn chậm.","Rất rụt rè, không tham gia vào hoạt động thực hành nói lớp.","Cần sự hỗ trợ đặc biệt và lộ trình ôn tập lại từ đầu.","Chưa đạt yêu cầu môn học, cần nỗ lực thật nhiều để tiến bộ."],
+                2: ["Hổng kiến thức căn bản, chưa nhận diện được mặt chữ tiếng Anh.","Khả năng nghe và phản xạ ngôn ngữ kém, hay làm sai hướng dẫn.","Rất lúng túng khi thực hiện bài tập đơn giản trong sách học.","Cần sự kiên trì rèn luyện và giám sát sát sao từ phía gia đình.","Năng lực môn học hạn chế, cố gắng vượt bậc để cải thiện kết quả."],
+                1: ["Chưa có nền tảng về môn học, khả năng tiếp thu rất hạn chế.","Cần hướng dẫn lại từ bảng chữ cái và các từ vựng đầu tiên.","Hầu như không tham gia vào hoạt động ngôn ngữ nào trong lớp.","Phối hợp chặt chẽ cùng nhà trường tìm giải pháp hỗ trợ em.","Nỗ lực làm quen và không sợ hãi khi học môn ngoại ngữ mới."]
+            } },
+            "TH-CN (Tin học)": { type: 'score', data: {
+                10: ["Thao tác chuột và bàn phím rất thành thạo, tư duy công nghệ nhạy bén.","Nắm vững kiến thức, thực hiện các bài thực hành rất nhanh và chính xác.","Có năng khiếu tin học, sử dụng tốt các phần mềm học tập được giao.","Hiểu bài sâu, biết cách tự khám phá các tính năng mới trên máy tính.","Hoàn thành xuất sắc nhiệm vụ, thao tác máy tính rất chuyên nghiệp."],
+                9: ["Kỹ năng thực hành tốt, nắm chắc các bước sử dụng máy tính an toàn.","Hiểu bài nhanh, thực hiện đúng các thao tác trên phần mềm ứng dụng.","Thao tác chuột linh hoạt, hoàn thành tốt các bài tập thực hành trên lớp.","Có ý thức học tập tốt, nắm vững các thành phần cơ bản của máy tính.","Bài làm chính xác, trình bày sản phẩm rõ ràng và sạch đẹp."],
+                8: ["Nắm được kiến thức cơ bản, thao tác máy tính đúng quy trình kỹ thuật.","Hoàn thành tốt các bài tập, cần phát huy thêm sự chủ động khi thực hành.","Kỹ năng sử dụng chuột và bàn phím đạt mức tốt, làm bài cẩn thận.","Hiểu nội dung bài học, thực hiện đầy đủ các nhiệm vụ học tập được giao.","Có ý thức giữ gìn thiết bị phòng máy, kết quả học tập ổn định."],
+                7: ["Hiểu bài và thực hiện được các thao tác cơ bản, cần rèn thêm tốc độ đánh máy.","Thao tác máy tính đạt mức khá, đôi lúc còn lúng túng khi sử dụng phần mềm.","Nắm được kiến thức trọng tâm, cần tập trung hơn trong giờ thực hành.","Hoàn thành bài ở mức ổn định, cần chú ý tính tỉ mỉ khi thực hiện thao tác.","Có ý thức học tập, cần mạnh dạn hơn khi trao đổi về các lỗi kỹ thuật."],
+                6: ["Đạt yêu cầu môn học, cần rèn luyện thêm kỹ năng sử dụng chuột và bàn phím.","Bước đầu làm quen với các phần mềm, cần chú ý lắng nghe hướng dẫn hơn.","Hoàn thành nội dung ở mức cơ bản, cần nỗ lực thực hành nhiều hơn tại lớp.","Cần tập trung hơn để nắm vững quy trình tắt, mở máy tính đúng cách.","Năng lực tin học ở mức đạt, cần sự hỗ trợ và nhắc nhở thường xuyên."],
+                5: ["Cần rèn luyện thao tác chuột, bàn phím và cách mở ứng dụng cơ bản.","Kiến thức thực hành còn hạn chế, cần được hướng dẫn lại từ đầu.","Cần chú ý nghe giảng để không thực hiện sai quy trình trên máy.","Hay quên các bước đã học, cần thực hành lặp lại nhiều lần.","Cần nghiêm túc và tập trung hơn trong các giờ học phòng máy."],
+                4: ["Thao tác với máy tính còn rất vụng về, hay sai sót quy trình máy.","Chưa nắm vững các biểu tượng phần mềm, thực hành nhiều hơn nữa.","Hay làm việc riêng, chưa hoàn thành bài thực hành đúng thời gian lớp.","Kỹ năng gõ phím còn yếu, cần dành thêm thời gian luyện tập tại nhà.","Lúng túng khi thực hiện các yêu cầu đơn giản từ giáo viên hướng dẫn."],
+                3: ["Kiến thức tin học hạn chế, tiếp thu bài thực hành rất chậm chạp.","Chưa biết cách sử dụng các bộ phận cơ bản của máy tính cá nhân em.","Cần sự kèm cặp và hướng dẫn chi tiết từng bước từ thầy cô giáo.","Hay quên các quy tắc an toàn khi sử dụng điện và thiết bị máy tính.","Nỗ lực hơn nữa để làm quen với các thiết bị công nghệ hiện đại học."],
+                2: ["Rất khó khăn khi thực hiện các thao tác với chuột máy tính trên lớp.","Hổng kiến thức cơ bản, chưa làm quen được với môi trường làm việc máy.","Hay làm sai bước hướng dẫn, cần sự kiên trì luyện tập mỗi ngày ở nhà.","Em cần bắt đầu học từ thao tác mở máy và cách cầm chuột máy tính.","Cần sự hỗ trợ tích cực từ thầy cô và gia đình để em tiến bộ hơn."],
+                1: ["Chưa nắm được kiến thức tối thiểu về môn học máy tính và công nghệ.","Thao tác thực hành rất yếu, cần được hướng dẫn lại một cách tỉ mỉ nhất.","Khả năng tiếp thu bài hạn chế, nỗ lực vượt qua rào cản về công nghệ.","Nỗ lực làm quen với công nghệ thông tin để không bị bỏ lại phía sau lớp.","Cần dành nhiều thời gian thực hành tại phòng máy nhà trường nhiều hơn."]
+            } },
+            "TH-CN (Công nghệ)": { type: 'score', data: {
+                10: ["Thực hành khéo léo, sản phẩm sáng tạo, thẩm mĩ và rất bền chắc.","Nắm vững quy trình kỹ thuật, thao tác với dụng cụ rất an toàn.","Có năng khiếu tạo hình, sản phẩm thủ công đạt độ hoàn thiện cao.","Hiểu bài sâu, biết vận dụng kiến thức vào việc chăm sóc đồ dùng.","Hoàn thành xuất sắc nhiệm vụ, tích cực giúp bạn trong giờ thực hành."],
+                9: ["Kỹ năng thực hành tốt, sản phẩm hoàn thiện đúng yêu cầu và đẹp mắt.","Nắm chắc các bước thực hiện, trình bày bài làm khoa học và rõ ràng.","Thao tác đúng quy trình hướng dẫn, đảm bảo an toàn học đường.","Hiểu được vai trò của các sản phẩm công nghệ trong đời sống hằng ngày.","Ý thức học tập rất tốt, có tinh thần trách nhiệm cao với sản phẩm cá nhân."],
+                8: ["Nắm được kiến thức trọng tâm, thực hiện sản phẩm đạt kết quả tốt.","Kỹ năng thủ công ổn định, cần tỉ mỉ hơn ở các bước trang trí sản phẩm.","Hoàn thành đầy đủ các nhiệm vụ học tập, nắm vững quy trình thực hiện.","Có ý thức giữ gìn vệ sinh nơi thực hành, trình bày sản phẩm sạch sẽ.","Kết quả học tập tốt, có sự tiến bộ rõ rệt trong các giờ thực hành kỹ thuật."],
+                7: ["Thực hiện được các thao tác kỹ thuật cơ bản, cần chú ý hơn đến thẩm mĩ.","Nắm được quy trình làm sản phẩm nhưng đôi khi thao tác còn hơi chậm.","Hoàn thành bài ở mức đạt, cần rèn luyện thêm sự khéo léo của đôi tay.","Có ý thức học tập, cần tích cực tham gia thảo luận về các vấn đề công nghệ.","Hiểu nội dung bài học, cần cẩn thận hơn khi sử dụng dụng cụ thực hành."],
+                6: ["Đạt yêu cầu môn học, cần rèn luyện kỹ năng thực hành nhiều hơn.","Sản phẩm hoàn thành ở mức cơ bản, cần sự hướng dẫn và nhắc nhở thường xuyên.","Bước đầu làm quen với quy trình kỹ thuật, cần tập trung nghe giảng hơn.","Kỹ năng thao tác dụng cụ còn lúng túng, cần rèn luyện tính kiên trì.","Cần sự hỗ trợ từ giáo viên và bạn bè để hoàn thành sản phẩm thủ công."],
+                5: ["Cần nỗ lực hoàn thành sản phẩm đúng hạn và theo đúng quy trình.","Kỹ năng thực hành còn yếu, sản phẩm chưa đạt yêu cầu kỹ thuật cơ bản.","Chưa nắm rõ quy trình thao tác, cần làm lại dưới sự hướng dẫn chi tiết.","Thiếu tập trung trong giờ học thực hành, cần nghiêm túc học tập hơn.","Cần ôn tập kỹ lý thuyết để thao tác an toàn với các dụng cụ kỹ thuật."],
+                4: ["Sản phẩm hoàn thành rất sơ sài, nét cắt và dán còn vụng về, lem nhem.","Chưa hiểu quy trình kỹ thuật, hay làm sai các bước hướng dẫn của thầy cô.","Kỹ năng sử dụng dụng cụ như kéo, thước còn kém, cần rèn luyện thêm.","Hay để lãng phí vật liệu thực hành, chưa có ý thức giữ gìn vệ sinh chung.","Cần nỗ lực hơn để hoàn thành được những sản phẩm thủ công đơn giản nhất."],
+                3: ["Khả năng thực hành công nghệ rất hạn chế, sản phẩm không đạt yêu cầu.","Chưa nắm vững các kiến thức về an toàn và quy trình sử dụng dụng cụ.","Rất lúng túng khi thực hiện các bài tập thực hành cắt, gấp và tạo hình.","Tiếp thu bài chậm, cần sự kèm cặp và hướng dẫn trực tiếp từ giáo viên.","Cần sự kiên trì và nỗ lực rất nhiều để cải thiện kết quả học tập môn này."],
+                2: ["Hổng kiến thức kỹ thuật cơ bản, hầu như không hoàn thành được sản phẩm.","Kỹ năng thao tác tay rất yếu, hay làm hỏng các vật liệu trong giờ học.","Chưa có ý thức học tập nghiêm túc, thường xuyên làm việc riêng trên lớp.","Cần lộ trình hỗ trợ riêng để giúp em nắm bắt được các kỹ năng căn bản.","Cần sự phối hợp giám sát chặt chẽ từ gia đình trong việc học tập của em."],
+                1: ["Năng lực môn học rất yếu, cần được hướng dẫn lại từ những bước đầu tiên.","Chưa biết cách sử dụng các dụng cụ học tập tối thiểu của môn công nghệ.","Khả năng sáng tạo và thực hành rất hạn chế, cần cố gắng vượt bậc.","Cần sự kiên trì rèn luyện mỗi ngày để nâng cao kỹ năng thực hành tay.","Nỗ lực thật nhiều để không bị bỏ lại quá xa so với chương trình học lớp."]
+            } },
+            "Đạo đức": { type: 'level', data: {
+                'T': ["Em rất ngoan, lễ phép, luôn thực hiện tốt chuẩn mực hành vi đạo đức.","Có ý thức tự giác cao, chấp hành nghiêm túc nội quy trường lớp.","Biết quan tâm, chia sẻ và sẵn sàng giúp đỡ bạn bè xung quanh.","Luôn trung thực trong học tập, là tấm gương sáng cho các bạn.","Dũng cảm nhận lỗi và sửa lỗi, có thái độ ứng xử rất văn minh.","Luôn có ý thức giữ gìn vệ sinh chung và bảo vệ của công cộng.","Thực hiện tốt các bài học về lòng biết ơn và sự yêu thương.","Giao tiếp lễ phép với người lớn, nhường nhịn các em nhỏ hơn."],
+                'H': ["Em ngoan, biết vâng lời thầy cô và cư xử đúng mực với bạn bè.","Nắm được nội dung bài học, thực hiện được hành vi đạo đức cơ bản.","Có ý thức giữ gìn vệ sinh chung, hoàn thành bài rèn luyện mức đạt.","Biết nói lời cảm ơn, xin lỗi và tham gia tốt các hoạt động tập thể.","Có tinh thần đoàn kết, nhường nhịn bạn bè trong giờ học và giờ chơi.","Biết yêu quý người thân và thực hiện các nhiệm vụ được giao phó.","Tự giác hoàn thành các bài tập đạo đức theo hướng dẫn của giáo viên.","Biết bảo quản đồ dùng học tập và giữ gìn môi trường trường lớp."],
+                'C': ["Cần nỗ lực rèn luyện thêm tính tự giác và ý thức chấp hành nội quy.","Vận dụng các bài học ứng xử vào thực tế còn hạn chế, cần nhắc nhở.","Cần học cách quan tâm, chia sẻ và hòa đồng hơn với bạn bè trong lớp.","Đôi lúc còn chưa thật thà, cần rèn luyện tính trung thực và nhận lỗi.","Cần tập trung hơn trong giờ học để hiểu và thực hiện hành vi văn minh.","Hay làm việc riêng, chưa chú ý nghe giảng về bài học đạo đức.","Cần sự đồng hành từ gia đình để rèn luyện thói quen cư xử tốt.","Chưa biết cách tự phục vụ và sắp xếp ngăn nắp đồ dùng cá nhân."]
+            } },
+            "Tự nhiên và xã hội": { type: 'level', data: {
+                'T': ["Ham học hỏi, có kiến thức sâu rộng về các chủ đề tự nhiên và xã hội.","Kỹ năng quan sát và phân tích các sự vật, hiện tượng rất tốt, chính xác.","Tích cực, sôi nổi trong hoạt động khám phá và tìm hiểu môi trường.","Vận dụng linh hoạt kiến thức vào thực tế, bảo vệ sức khỏe rất tốt.","Có ý thức giữ gìn vệ sinh nơi ở, trường lớp và bảo vệ động vật.","Hiểu biết tốt về các cơ quan trong cơ thể và cách phòng tránh bệnh.","Tham gia nhiệt tình các buổi trải nghiệm tìm hiểu về cộng đồng.","Nắm vững các quy tắc an toàn khi sử dụng đồ dùng trong gia đình."],
+                'H': ["Nắm được kiến thức trọng tâm về tự nhiên xã hội theo chương trình.","Thực hiện được các bước quan sát sự vật dưới sự hướng dẫn của cô.","Có ý thức giữ gìn vệ sinh cá nhân và môi trường xung quanh, hoàn thành bài đạt.","Tham gia đầy đủ hoạt động trải nghiệm, hợp tác tốt khi làm việc nhóm.","Hoàn thành đầy đủ các bài tập thực hành và ý thức tìm hiểu quê hương.","Biết cách tự bảo vệ mình trước những tình huống nguy hiểm đơn giản.","Nhận biết được các thành viên trong gia đình và vai trò của từng người.","Có ý thức giữ gìn tài sản chung của nhà trường và nơi công cộng."],
+                'C': ["Kỹ năng quan sát nhận biết hiện tượng tự nhiên hạn chế, rèn luyện thêm.","Chưa tập trung lắng nghe giảng bài, ghi nhớ kiến thức còn lúng túng.","Khả năng vận dụng kiến thức vào thực tế đời sống còn chậm, cần hỗ trợ.","Ý thức tham gia hoạt động khám phá tự nhiên chưa cao, cần được khích lệ.","Cần dành nhiều thời gian ôn tập để theo kịp tiến độ của môn học.","Chưa biết cách phân biệt các loại rác thải để bảo vệ môi trường.","Hay nhầm lẫn về chức năng của các bộ phận trên cơ thể người.","Cần dành thời gian tìm hiểu nhiều hơn về thế giới xung quanh em."]
+            } },
+            "Nghệ thuật (Âm nhạc)": { type: 'level', data: {
+                'T': ["Em hát đúng giai điệu, lời ca rõ ràng, phong cách biểu diễn tự tin.","Năng khiếu âm nhạc tốt, cảm thụ nhịp điệu và gõ đệm rất chính xác.","Hào hứng tham gia hoạt động âm nhạc, biết vận động phụ họa sáng tạo.","Thể hiện bài hát rất tự nhiên, kết hợp động tác hình thể nhịp nhàng.","Hoàn thành xuất sắc môn học, gương mẫu trong tiết sinh hoạt văn nghệ.","Giọng hát hay, truyền cảm; nắm vững bài hát và các bài đọc nhạc.","Rất tích cực tham gia biểu diễn trước lớp với phong thái tự tin.","Nhận diện nhanh các âm thanh và nhịp phách trong mỗi bài học."],
+                'H': ["Em thuộc lời bài hát, hát đúng nhạc và hoàn thành tốt nhiệm vụ.","Ý thức học tập tốt, thực hiện được động tác vận động phụ họa cơ bản.","Tham gia đầy đủ hoạt động ca hát lớp, cần hát to và rõ lời hơn nữa.","Biết cách gõ đệm theo nhịp, phách, đôi lúc cần sự hỗ trợ của cô.","Có cố gắng trong giờ học, bước đầu biết nhún nhảy theo giai điệu.","Hoàn thành các bài thực hành âm nhạc ở mức đạt theo yêu cầu.","Biết giữ gìn vệ sinh phòng học và bảo quản nhạc cụ gõ đệm.","Lắng nghe và thực hiện đúng nhịp đếm của thầy cô khi thực hành."],
+                'C': ["Chưa nhớ kĩ lời bài hát và giai điệu, cần dành thêm thời gian luyện tập.","Khả năng cảm thụ âm nhạc hạn chế, gõ đệm theo nhịp chưa chính xác.","Còn nhút nhát, chưa tích cực tham gia ca hát và vận động của lớp.","Kỹ năng thực hành âm nhạc lúng túng, cần thả lỏng và tự nhiên hơn.","Chú ý quan sát và lắng nghe nhiều hơn để cải thiện kỹ năng hát.","Hay quên lời bài hát, cần gia đình hỗ trợ tập luyện thêm ở nhà.","Thực hiện động tác vận động còn cứng, chưa khớp với nhịp điệu nhạc.","Cần nỗ lực vượt qua sự rụt rè để tự tin biểu diễn cùng các bạn."]
+            } },
+            "Nghệ thuật (Mĩ thuật)": { type: 'level', data: {
+                'T': ["Em vẽ tranh rất sáng tạo, màu sắc hài hòa và bố cục sản phẩm cân đối.","Thể hiện ý tưởng độc đáo qua nét vẽ, phối hợp màu sắc sinh động.","Có năng khiếu mĩ thuật, các sản phẩm đều đạt độ hoàn thiện cao.","Kỹ năng sử dụng màu vẽ linh hoạt, trình bày sản phẩm sạch sẽ.","Hoàn thành xuất sắc nhiệm vụ, luôn có sáng tạo cá nhân đáng ghi nhận.","Biết cách sử dụng đường nét và hình khối để tạo nên tác phẩm đẹp.","Luôn hào hứng thực hiện các chủ đề mĩ thuật mới lạ một cách tích cực.","Sản phẩm tạo hình bằng đất sét và cắt dán thủ công rất khéo léo."],
+                'H': ["Vẽ được hình dáng các sự vật theo yêu cầu, tô màu phù hợp, sạch sẽ.","Nắm được kiến thức cơ bản về bố cục và màu sắc, hoàn thành đúng giờ.","Có ý thức học tập, thực hiện tốt bước thực hành theo hướng dẫn của cô.","Vẽ tranh đúng chủ đề, thỉnh thoảng cần chú ý tô màu đậm đà hơn.","Tham gia tích cực các tiết học thực hành, trình bày bài rõ ràng.","Biết giữ gìn vệ sinh lớp học và đồ dùng mĩ thuật sau khi sử dụng.","Biết nhận xét và đưa ra cảm nghĩ về sản phẩm mĩ thuật của chính mình.","Sử dụng kéo, hồ dán và đất nặn an toàn, hoàn thành bài mức đạt."],
+                'C': ["Kỹ năng vẽ hình và phối màu còn lúng túng, rèn thêm sự khéo léo.","Chưa hoàn thành sản phẩm mĩ thuật theo thời gian, cần tập trung hơn.","Bố cục tranh rời rạc, cần chú ý quan sát mẫu và hướng dẫn của cô.","Việc tô màu còn lem nhem và chưa kín hình, rèn luyện tính kiên trì.","Chú ý chuẩn bị đầy đủ đồ dùng học tập để tham gia giờ học hiệu quả.","Nét vẽ còn quá nhỏ, tô màu bị gạch xóa nhiều, cần nỗ lực nhiều hơn.","Chưa hoàn thành được các bước cắt dán hình học đơn giản trên lớp.","Cần dành thời gian luyện vẽ thêm ở nhà để theo kịp chương trình."]
+            } },
+            "Hoạt động trải nghiệm": { type: 'level', data: {
+                'T': ["Rất tích cực, chủ động trong hoạt động tập thể, trách nhiệm cao.","Kỹ năng làm việc nhóm xuất sắc, luôn lắng nghe hỗ trợ bạn bè.","Thể hiện sự sáng tạo và tự tin khi tham gia chủ đề trải nghiệm thực tế.","Có kỹ năng tự phục vụ tốt, sắp xếp đồ dùng cá nhân và thời gian khoa học.","Rất nhanh nhẹn xử lý tình huống thực tế đơn giản, có tinh thần cầu tiến.","Biết tự chăm sóc bản thân và thực hiện nề nếp kỷ luật rất tốt.","Giao tiếp lễ phép, tự tin bày tỏ ý kiến cá nhân trong các buổi sinh hoạt.","Luôn đi đầu trong các phong trào thi đua và hoạt động ngoại khóa lớp."],
+                'H': ["Tham gia đầy đủ hoạt động trải nghiệm, hoàn thành tốt nhiệm vụ.","Có ý thức rèn luyện kỹ năng sống, phối hợp tốt cùng bạn trong nhóm.","Nắm được yêu cầu nề nếp, nỗ lực thực hiện các quy định của lớp học.","Biết cách giao tiếp lễ phép, hòa đồng nhưng còn đôi chút rụt rè.","Có tiến bộ khi tham gia phong trào, chủ động hơn khi thảo luận nhóm.","Biết thực hiện các việc làm thể hiện lòng biết ơn với thầy cô, cha mẹ.","Tự giác tham gia vệ sinh trường lớp và giữ gìn cảnh quan sạch đẹp.","Hoàn thành các hoạt động tự phục vụ cơ bản theo hướng dẫn của giáo viên."],
+                'C': ["Còn thụ động, chưa tích cực tham gia hoạt động trải nghiệm cùng bạn.","Kỹ năng tự phục vụ còn hạn chế, cần sự nhắc nhở từ giáo viên.","Chưa tập trung trong giờ hoạt động chung, hay xao nhãng nhiệm vụ nhóm.","Khả năng giao tiếp hợp tác cùng bạn còn lúng túng, cần nỗ lực hòa nhập.","Cần sự khích lệ để vượt qua sự nhút nhát và hoàn thành yêu cầu cơ bản.","Chưa biết cách tự sắp xếp đồ dùng cá nhân và góc học tập ngăn nắp.","Hay làm việc riêng, không chú ý thực hiện các nội quy của lớp học.","Cần rèn luyện thêm kỹ năng lắng nghe và tôn trọng ý kiến tập thể."]
+            } },
+            "Giáo dục thể chất": { type: 'level', data: {
+                'T': ["Em thực hiện các động tác rất chính xác, nhanh nhẹn, tư thế vận động đẹp.","Nắm vững kỹ thuật đội hình đội ngũ, khẩu lệnh dứt khoát và chuẩn xác.","Thể lực tốt, luôn năng nổ và dẫn đầu trong các trò chơi vận động lớp.","Luôn có ý thức kỷ luật cao trên sân tập, thực hiện đúng quy định an toàn.","Hoàn thành xuất sắc nội dung học tập, thể hiện khiếu thể thao vượt trội.","Nhanh nhẹn, linh hoạt trong phối hợp vận động và xử lý tình huống.","Thực hiện bài thể dục phát triển chung đều, đúng nhịp và rất nhịp nhàng.","Sức bền tốt, duy trì được tinh thần tích cực trong suốt giờ học."],
+                'H': ["Em thực hiện đúng các động tác cơ bản, hoàn thành tốt các bài tập thể lực.","Có ý thức tập luyện tích cực, học tập nghiêm túc và chấp hành nội quy.","Tham gia đầy đủ các trò chơi vận động, thực hiện nhiệm vụ mức đạt.","Phối hợp tốt với bạn bè trong các hoạt động rèn luyện và trò chơi.","Tinh thần thể thao tốt, hoàn thành đầy đủ nhiệm vụ giáo dục thể chất.","Biết cách chuẩn bị trang phục thể thao đúng quy định khi ra sân tập.","Nắm vững các quy định an toàn để phòng tránh chấn thương khi vận động.","Biết tập hợp hàng ngũ và thực hiện các động tác quay tại chỗ theo lệnh."],
+                'C': ["Em thực hiện các động tác vận động còn lúng túng, cần rèn luyện thêm tại nhà.","Thể lực còn yếu, em cần rèn thói quen tập thể dục thường xuyên để khỏe.","Còn thiếu tập trung giờ học, thường thực hiện sai động tác đội hình.","Kỹ năng phối hợp vận động còn chậm, cần sự hỗ trợ từ giáo viên.","Cần sự phối hợp cùng gia đình khích lệ em tích cực vận động hơn.","Hay mệt mỏi, chưa đủ sức bền để hoàn thành trọn vẹn các bài tập.","Thực hiện bài thể dục còn sai nhịp, chưa thuộc hết các động tác.","Còn nhút nhát, chưa dám tham gia vào các trò chơi vận động cùng bạn."]
+            } }
+        },
+        "Lop45": {
+            "Toán": { type: 'score', data: {
+                10: ["Tính nhanh, nắm vững bảng nhân chia, giải toán khoa học.","Tư duy tốt, thực hiện chính xác các phép tính có nhớ.","Kỹ năng giải toán có lời văn rất tốt, trình bày bài khoa học.","Nắm chắc kiến thức về hình học và đo lường, làm bài xuất sắc.","Em hiểu bài sâu, tính toán cẩn thận và luôn đạt kết quả tối đa."],
+                9: ["Em nắm vững kiến thức, kỹ năng tính nhẩm và thực hiện rất tốt.","Làm bài chính xác, trình bày rõ ràng, phát huy thêm tính sáng tạo.","Hiểu và vận dụng tốt các bảng nhân, chia đã học vào bài tập.","Kết quả học tập rất tốt, có ý thức tự giác cao trong giờ Toán.","Tính toán nhanh, ít sai sót, trình bày bài làm sạch sẽ, ngăn ngắt."],
+                8: ["Em nắm được kiến thức trọng tâm, thực hiện đúng các phép tính.","Kỹ năng tính toán đạt mức tốt, cần kiểm tra kỹ tránh lỗi nhỏ.","Hiểu cách giải toán có lời văn, trình bày bài rõ ràng, dễ nhìn.","Hoàn thành tốt các nhiệm vụ học tập, nắm chắc đơn vị đo lường.","Có tiến bộ trong học tập, duy trì sự tập trung để đạt kết quả cao."],
+                7: ["Em hiểu bài và thực hiện được các phép tính, đôi khi còn nhầm lẫn.","Nắm được bảng nhân chia nhưng tốc độ tính toán cần rèn thêm.","Hoàn thành bài ở mức khá, đặt tính thẳng cột theo đúng quy định.","Biết cách giải toán có lời văn, rèn thêm kỹ năng phân tích đề.","Ý thức học tập tốt, cần cẩn thận hơn trong việc tính toán số liệu."],
+                6: ["Em đạt yêu cầu môn học, nỗ lực rèn luyện thêm bảng cửu chương.","Thực hiện được phép tính cộng, trừ có nhớ nhưng còn lúng túng.","Cần tập trung hơn khi nghe giảng để nắm vững quy trình giải toán.","Kỹ năng tính toán cơ bản ổn định, cần chú ý giữ vở sạch đẹp hơn.","Em hiểu bài ở mức cơ bản, hãy chăm chỉ làm thêm bài tập tại nhà."],
+                5: ["Hoàn thành nội dung ở mức cơ bản, cần nỗ lực nhiều hơn trong tính toán.","Kỹ năng thực hiện phép tính nhân, chia còn chậm, cần rèn luyện thêm.","Bước đầu biết giải toán có lời văn, cần sự hỗ trợ từ giáo viên.","Cần ôn tập kỹ các bảng tính đã học để không bị nhầm lẫn khi làm bài.","Cần tập trung hơn và tích cực phát biểu xây dựng bài trong giờ học."],
+                4: ["Tính toán còn rất chậm, hay quên quy tắc cộng trừ có nhớ.","Chưa thuộc các bảng nhân, chia cơ bản, cần nỗ lực luyện tập nhiều.","Hay xao nhãng trong giờ học, làm bài còn sai sót nhiều lỗi cơ bản.","Kỹ năng giải toán có lời văn còn yếu, chưa biết cách phân tích đề.","Dành nhiều thời gian luyện tập thêm bài tập ở nhà để tiến bộ."],
+                3: ["Kiến thức toán học còn nhiều lỗ hổng, tiếp thu bài rất khó khăn.","Tính toán hay sai lệch nhiều, chưa biết cách đặt tính thẳng cột.","Rất lúng túng khi thực hiện các bài tập tính toán trên lớp.","Em cần nỗ lực thật nhiều và tập trung nghe giảng để tiến bộ.","Chưa hoàn thành các bài tập toán theo yêu cầu của giáo viên."],
+                2: ["Hổng kiến thức toán học cơ bản, cần được hướng dẫn lại từ đầu.","Chưa nắm vững bảng cửu chương và các quy tắc tính toán đơn giản.","Kỹ năng làm toán rất yếu, thường xuyên không hoàn thành bài tập.","Cần sự hỗ trợ đặc biệt và kiên trì rèn luyện mỗi ngày từ gia đình.","Hay nhầm lẫn các con số và dấu tính, cần nỗ lực vượt qua khó khăn."],
+                1: ["Năng lực toán học rất hạn chế, cần rèn luyện lại từ những bước đầu.","Chưa thực hiện được các phép tính cộng trừ đơn giản nhất.","Khả năng tiếp thu bài rất chậm, cần lộ trình hỗ trợ riêng biệt.","Phối hợp chặt chẽ cùng nhà trường để giúp em nắm bắt kiến thức cơ bản.","Em nỗ lực thật nhiều để không bị bỏ lại quá xa so với chương trình."]
+            } },
+            "Tiếng việt": { type: 'score', data: {
+                10: ["Em đọc trôi chảy, diễn cảm. Viết đoạn văn sinh động, dùng từ hay.","Chữ viết đẹp, đúng ô ly, trình bày bài sạch sẽ và rất khoa học.","Kỹ năng đọc hiểu tốt, nắm vững các quy tắc về từ và câu.","Nghe - viết chính tả chính xác, không mắc lỗi, hoàn thành xuất sắc.","Em có vốn từ phong phú, diễn đạt trôi chảy và giàu cảm xúc."],
+                9: ["Em đọc to, rõ ràng, tốc độ đọc tốt. Bài viết chữ ngay ngắn, sạch đẹp.","Viết đoạn văn đúng yêu cầu, câu văn mạch lạc và đủ ý.","Nắm vững kiến thức môn học, thực hiện tốt bài luyện từ và câu.","Kỹ năng nghe - viết tốt, rất ít khi sai lỗi chính tả, trình bày cẩn thận.","Em tích cực tương tác trong giờ học, hoàn thành bài làm chất lượng."],
+                8: ["Em đọc bài trôi chảy, lưu loát. Chữ viết cẩn thận, đúng quy định.","Viết đoạn văn đủ ý, cần chú ý sử dụng thêm từ ngữ gợi tả sinh động.","Hoàn thành tốt các nội dung học tập, có ý thức giữ sách vở sạch sẽ.","Kỹ năng đọc hiểu đạt mức tốt, rèn luyện thêm cách diễn đạt trôi chảy.","Có tiến bộ rõ rệt trong việc rèn chữ và viết chính tả, cần phát huy."],
+                7: ["Em đọc bài rõ ràng nhưng tốc độ cần nhanh hơn chút nữa.","Chữ viết tương đối đều nét, đôi khi còn mắc lỗi chính tả dấu thanh.","Viết được đoạn văn ngắn theo yêu cầu, cần chú ý cách dùng từ đặt câu.","Hiểu nội dung bài đọc, tích cực phát biểu đóng góp ý kiến trong lớp.","Nắm được kiến thức cơ bản, cẩn thận hơn khi trình bày bài viết."],
+                6: ["Em đọc bài đạt yêu cầu về tốc độ. Khi viết chú ý khoảng cách các chữ.","Kỹ năng viết đoạn văn còn đơn giản, luyện diễn đạt ý rõ ràng hơn.","Nắm kiến thức ở mức cơ bản, thỉnh thoảng còn nhầm lẫn khi nghe - viết.","Cần rèn thêm kỹ năng đọc hiểu và vốn từ vựng thông qua đọc sách.","Đạt yêu cầu môn học, hãy nỗ lực để chữ viết được đẹp và đều hơn."],
+                5: ["Kỹ năng đọc và viết cần được rèn luyện nhiều hơn để theo kịp lớp.","Em còn mắc lỗi khi viết chính tả, cần sự hỗ trợ ôn tập từ gia đình.","Viết đoạn văn còn lúng túng, dành thời gian luyện tập đặt câu đơn giản.","Em cần chú ý lắng nghe giảng và chăm chỉ luyện đọc mỗi ngày tại nhà.","Bước đầu thực hiện được yêu cầu môn học, cố gắng hơn để tiến bộ."],
+                4: ["Đọc bài còn ê a, chưa đảm bảo tốc độ đọc theo yêu cầu.","Chữ viết còn chưa cẩn thận, trình bày bài làm chưa sạch đẹp.","Viết đoạn văn còn rời rạc, chưa biết cách dùng từ kết nối ý.","Sai nhiều lỗi chính tả cơ bản khi nghe viết trên lớp.","Dành nhiều thời gian luyện đọc và viết bài tập tại nhà."],
+                3: ["Khả năng đọc và viết rất yếu, cần được hỗ trợ và kèm cặp sát sao.","Chưa nắm vững quy tắc viết hoa và các dấu câu căn bản.","Đọc bài hay bị ngắt quãng, chưa hiểu rõ nội dung vừa đọc.","Cần nỗ lực nhiều để cải thiện kỹ năng sử dụng ngôn ngữ của mình.","Viết chữ sai mẫu nhiều, trình bày bài làm chưa đạt yêu cầu."],
+                2: ["Hổng kiến thức tiếng Việt cơ bản, kỹ năng đọc và viết rất hạn chế.","Chưa biết cách viết câu hoàn chỉnh, vốn từ vựng còn nghèo nàn.","Phát âm thường xuyên bị nhầm lẫn, ảnh hưởng đến kỹ năng đọc.","Cần lộ trình rèn luyện lại từ đầu với sự phối hợp của gia đình.","Rất lúng túng khi thực hiện các bài tập Tiếng Việt trên lớp."],
+                1: ["Chưa nắm được mặt chữ và âm vần, năng lực môn học rất yếu.","Cần hướng dẫn lại từ bảng chữ cái và các quy tắc ghép vần đơn giản.","Khả năng tiếp thu bài rất chậm, cần sự kiên trì luyện tập mỗi ngày.","Gia đình cần sát sao hơn trong việc rèn luyện đọc viết tại nhà cho em.","Nỗ lực vượt qua khó khăn để theo kịp chương trình học tập của lớp."]
+            } },
+            "Khoa học": { type: 'score', data: {
+                10: ["Ham học hỏi, nắm vững các kiến thức về thế giới tự nhiên.","Kỹ năng quan sát và làm thí nghiệm khoa học rất tốt, chính xác.","Hiểu bài sâu, biết vận dụng kiến thức khoa học vào thực tế.","Tích cực tìm tòi, khám phá các hiện tượng khoa học sáng tạo.","Hoàn thành xuất sắc bài thực hành và kiểm tra trên lớp."],
+                9: ["Nắm vững kiến thức trọng tâm, trình bày thí nghiệm rõ ràng.","Kỹ năng quan sát sự vật, hiện tượng tốt, trả lời câu hỏi chính xác.","Hiểu và giải thích được một số hiện tượng khoa học thường gặp.","Kết quả học tập rất tốt, có ý thức bảo vệ môi trường cao.","Tích cực tham gia các hoạt động tìm hiểu khoa học cùng bạn."],
+                8: ["Hoàn thành tốt các nhiệm vụ học tập, nắm chắc quy tắc an toàn.","Thực hiện đúng quy trình thí nghiệm dưới sự hướng dẫn cô.","Hiểu nội dung bài học, ý thức áp dụng kiến thức vào sức khỏe.","Có tiến bộ trong việc trình bày kết quả quan sát khoa học.","Kỹ năng học tập ổn định, làm bài tập đầy đủ và cẩn thận."],
+                7: ["Nắm được kiến thức cơ bản, thực hiện được thí nghiệm đơn giản.","Hiểu bài nhưng đôi khi diễn đạt hiện tượng còn chưa rõ ràng.","Đạt yêu cầu môn học, cần tích cực hơn trong giờ thực hành nhóm.","Có ý thức học tập, cần rèn luyện thêm kỹ năng quan sát chi tiết.","Hoàn thành bài ở mức khá, dành thời gian đọc thêm sách khoa học."],
+                6: ["Đạt mức cơ bản, cần tập trung hơn để nắm vững quy trình thí nghiệm.","Bước đầu làm quen khái niệm khoa học, ghi nhớ còn hơi chậm.","Cần sự hỗ trợ của giáo viên để hoàn thành bài tập thực hành.","Khả năng vận dụng kiến thức vào đời sống còn hạn chế, cố gắng.","Năng lực môn học ở mức trung bình, nỗ lực hơn để hiểu bài kỹ."],
+                5: ["Nỗ lực để theo kịp chương trình, cần ôn tập lý thuyết thường xuyên.","Kỹ năng làm thí nghiệm còn lúng túng, cần chú ý nghe hướng dẫn.","Hay quên kiến thức đã học, cần sự đôn đốc hỗ trợ từ gia đình.","Cần tập trung cao độ hơn để không bị hổng kiến thức môn học.","Bước đầu nắm được một số hiện tượng tự nhiên đơn giản nhất."],
+                4: ["Kiến thức khoa học còn hạn chế, chưa hiểu rõ các quy luật tự nhiên.","Thực hiện thí nghiệm hay sai sót, chưa nắm vững các bước an toàn.","Hay làm việc riêng, thiếu sự đầu tư cho môn học, kết quả chưa cao.","Kỹ năng quan sát và ghi chép khoa học yếu, cần rèn luyện lại.","Dành nhiều thời gian hơn để đọc bài và làm bài tập ở nhà."],
+                3: ["Khả năng tiếp thu bài chậm, chưa nắm được các kiến thức tối thiểu.","Rất lúng túng khi thực hiện các thao tác thực hành đơn giản trên lớp.","Hổng kiến thức nặng, cần sự kèm cặp và hướng dẫn lại tỉ mỉ nhất.","Chưa hoàn thành đầy đủ các nhiệm vụ học tập mà giáo viên giao.","Nỗ lực thật nhiều để hiểu được các hiện tượng khoa học căn bản."],
+                2: ["Năng lực môn học rất yếu, hầu như không nắm được nội dung bài học.","Kỹ năng quan sát và thực hành rất kém, hay làm sai quy trình kỹ thuật.","Cần sự hỗ trợ đặc biệt và lộ trình ôn tập riêng để cải thiện kết quả.","Phối hợp chặt chẽ cùng nhà trường để giúp em làm quen với môn học.","Rất khó khăn trong việc ghi nhớ các khái niệm khoa học đơn giản."],
+                1: ["Chưa có nền tảng môn học, khả năng tiếp thu rất hạn chế trên lớp.","Cần được hướng dẫn lại hoàn toàn các kiến thức từ đầu chương trình.","Thiếu tập trung và không tham gia vào bất kỳ hoạt động khám phá nào.","Cần sự kiên trì vượt bậc và sự hỗ trợ lớn từ phía gia đình em.","Nỗ lực làm quen các khái niệm khoa học để không bị bỏ quá xa lớp."]
+            } },
+            "Lịch sử và Địa lí": { type: 'score', data: {
+                10: ["Nắm vững các sự kiện lịch sử và vị trí địa lý của quê hương.","Kỹ năng sử dụng bản đồ và lược đồ rất tốt, trình bày rõ ràng.","Hiểu sâu về truyền thống lịch sử và đặc điểm kinh tế vùng miền.","Tư duy logic, trả lời câu hỏi về lịch sử và địa lý xuất sắc.","Hoàn thành xuất sắc các bài kiểm tra, thể hiện tình yêu quê hương."],
+                9: ["Nắm chắc kiến thức trọng tâm, ghi nhớ tốt các mốc lịch sử lớn.","Sử dụng bản đồ chính xác để xác định vị trí và ranh giới địa lý.","Hiểu và trình bày rõ về các nhân vật lịch sử và đặc điểm tự nhiên.","Kết quả học tập rất tốt, có ý thức tìm hiểu về cội nguồn dân tộc.","Tích cực tham gia đóng góp ý kiến và thảo luận sôi nổi trong giờ."],
+                8: ["Hoàn thành tốt nhiệm vụ học tập, nắm vững các kiến thức cơ bản.","Kỹ năng làm việc với bản đồ đạt mức tốt, trình bày bài cẩn thận.","Hiểu nội dung bài học, ý thức giữ gìn di tích lịch sử địa phương.","Có tiến bộ rõ rệt trong việc ghi nhớ sự kiện và địa danh quan trọng.","Làm bài tập đầy đủ, nắm chắc đặc điểm tự nhiên của các vùng miền."],
+                7: ["Nắm được kiến thức cơ bản, cần rèn thêm kỹ năng đọc lược đồ.","Hiểu bài nhưng đôi khi còn nhầm lẫn giữa các sự kiện và thời kỳ.","Đạt yêu cầu môn học, cần tích cực hơn trong hoạt động tìm hiểu.","Có ý thức học tập, dành thời gian đọc thêm tài liệu lịch sử địa lý.","Hoàn thành bài mức khá, cẩn thận hơn khi xác định phương hướng."],
+                6: ["Đạt mức trung bình, cần nỗ lực ghi nhớ các mốc lịch sử lâu hơn.","Sử dụng bản đồ còn lúng túng, cần sự hỗ trợ hướng dẫn thầy cô.","Nắm kiến thức mức cơ bản, thỉnh thoảng còn quên tên địa danh.","Cần tập trung nghe giảng để hiểu rõ hơn về truyền thống dân tộc.","Nỗ lực rèn luyện kỹ năng phân tích lược đồ để học tập tốt hơn."],
+                5: ["Nỗ lực theo kịp chương trình, ôn tập bài thường xuyên tại nhà.","Ghi nhớ các sự kiện còn chậm, cần sự đôn đốc kèm cặp gia đình.","Biết sử dụng bản đồ đơn giản nhất dưới sự chỉ dẫn của giáo viên.","Tập trung hơn trong giờ để không bị bỏ lỡ kiến thức quan trọng.","Ý thức học tập mức đạt, cần cố gắng nhiều hơn để tiến bộ mỗi ngày."],
+                4: ["Kiến thức lịch sử địa lý hạn chế, hay nhầm lẫn các sự kiện lớn.","Kỹ năng làm việc lược đồ và bản đồ rất yếu, chưa đạt yêu cầu.","Hay xao nhãng, thiếu đầu tư nghiên cứu bài học, kết quả chưa cao.","Chưa nắm vững các đặc điểm địa lý tự nhiên của đất nước mình học.","Dành nhiều thời gian đọc lại sách và làm các bài tập củng cố thêm."],
+                3: ["Khả năng tiếp thu bài chậm, chưa nắm được kiến thức tối thiểu nhất.","Rất lúng túng khi xác định vị trí địa lý bản đồ và quả địa cầu.","Hổng kiến thức nặng, cần được giáo viên hướng dẫn lại tỉ mỉ nhất.","Chưa hoàn thành đầy đủ nhiệm vụ học tập mà thầy cô giao trên lớp.","Nỗ lực thật nhiều để ghi nhớ những sự kiện lịch sử hào hùng dân tộc."],
+                2: ["Năng lực môn học rất yếu, hầu như không nắm nội dung bài đã dạy.","Kỹ năng sử dụng bản đồ kém, hay làm sai các bước xác định vị trí.","Cần hỗ trợ đặc biệt và lộ trình ôn tập riêng biệt từ phía gia đình.","Phối hợp chặt chẽ cùng nhà trường giúp em làm quen lại môn học.","Rất khó khăn ghi nhớ các nhân vật và địa danh lịch sử đơn giản."],
+                1: ["Chưa có nền tảng môn học, khả năng tiếp thu hạn chế trên lớp học.","Cần hướng dẫn lại toàn bộ kiến thức từ đầu chương trình lịch sử.","Thiếu tập trung và không tham gia hoạt động tìm hiểu nào của lớp.","Cần sự kiên trì vượt bậc và nỗ lực lớn để theo kịp chương trình.","Dành nhiều thời gian hơn nữa bồi dưỡng tình yêu lịch sử quê hương."]
+            } },
+            "Ngoại ngữ": { type: 'score', data: {
+                10: ["Phát âm tiếng Anh rất chuẩn, phản xạ ngôn ngữ nhanh nhẹn, tự tin.","Vốn từ vựng phong phú, sử dụng linh hoạt các mẫu câu đã học.","Hoàn thành xuất sắc các kỹ năng nghe, nói, đọc, viết trong giờ học.","Tiếp thu bài nhanh, luôn tích cực tham gia các trò chơi ngôn ngữ.","Kỹ năng giao tiếp tiếng Anh vượt trội, giọng đọc tự nhiên và hay."],
+                9: ["Nắm chắc từ vựng và cấu trúc câu, phát âm to, rõ ràng, chính xác.","Kỹ năng nghe hiểu tốt, thực hiện đúng các yêu cầu của giáo viên.","Làm bài tập đầy đủ, chữ viết từ vựng đẹp và trình bày sạch sẽ.","Tự tin phát biểu và tham gia thảo luận nhóm tích cực bằng tiếng Anh.","Kết quả học tập rất tốt, có ý thức tự giác rèn luyện thêm tại nhà."],
+                8: ["Nắm vững kiến thức trọng tâm, ghi nhớ tốt các từ vựng theo chủ đề.","Kỹ năng nghe và nói đạt mức khá tốt, cần phát huy sự tự tin hơn.","Thực hiện đúng các mẫu câu giao tiếp đơn giản, làm bài cẩn thận.","Hiểu bài và hoàn thành đầy đủ các nhiệm vụ học tập môn Ngoại ngữ.","Có tiến bộ rõ rệt trong việc học từ mới, cần duy trì phong độ tốt."],
+                7: ["Hiểu bài và phản hồi được các câu hỏi đơn giản, phát âm rõ ràng.","Nắm được vốn từ vựng cơ bản, thỉnh thoảng còn lúng túng khi nói.","Kỹ năng viết từ vựng đạt yêu cầu, cần chú ý hơn về mặt chính tả.","Hoàn thành bài ở mức khá, cần tích cực tham gia tương tác trong lớp.","Có ý thức học tập, cần rèn luyện thêm kỹ năng đọc trôi chảy đoạn văn."],
+                6: ["Đạt yêu cầu môn học, cần nỗ lực ghi nhớ từ vựng và cấu trúc nhiều hơn.","Phát âm còn chưa thật chuẩn, cần chú ý lắng nghe giáo viên hướng dẫn.","Bước đầu làm quen với ngoại ngữ, cần sự khích lệ để mạnh dạn nói.","Kỹ năng nghe còn hạn chế, cần dành thời gian luyện tập thêm tại nhà.","Hoàn thành nội dung ở mức cơ bản, cần tập trung hơn trong giờ học."],
+                5: ["Nỗ lực để theo kịp chương trình, cần rèn luyện từ vựng mỗi ngày.","Kỹ năng nghe và nói còn chậm, cần sự hỗ trợ kèm cặp từ gia đình.","Hay quên từ mới đã học, cần thực hành lặp lại nhiều lần để nhớ lâu.","Cần tập trung hơn và mạnh dạn tham gia các hoạt động ngôn ngữ lớp.","Bước đầu nắm được một số từ vựng đơn giản, cố gắng nhiều hơn nữa."],
+                4: ["Vốn từ vựng còn rất hạn chế, phát âm sai nhiều từ cơ bản.","Chưa nắm vững các cấu trúc câu giao tiếp đơn giản nhất.","Hay xao nhãng trong giờ học, kết quả kiểm tra còn thấp.","Kỹ năng nghe và nói yếu, cần rèn luyện lại từ kiến thức nền tảng.","Dành nhiều thời gian hơn cho môn học này để không bị mất gốc."],
+                3: ["Kiến thức ngoại ngữ còn rất yếu, tiếp thu bài mới khó khăn.","Chưa thuộc các từ vựng căn bản, kỹ năng viết từ còn rất chậm.","Rất rụt rè, không tham gia vào các hoạt động thực hành nói.","Cần sự hỗ trợ đặc biệt và lộ trình ôn tập lại từ đầu.","Chưa đạt yêu cầu môn học, cần nỗ lực thật nhiều để tiến bộ."],
+                2: ["Hổng kiến thức căn bản, chưa nhận diện được mặt chữ tiếng Anh.","Khả năng nghe và phản xạ ngôn ngữ rất kém, hay làm sai hướng dẫn.","Rất lúng túng khi thực hiện các bài tập đơn giản trong sách.","Cần sự kiên trì rèn luyện và giám sát sát sao từ phía gia đình.","Năng lực môn học rất hạn chế, cần cố gắng vượt bậc để cải thiện."],
+                1: ["Chưa có nền tảng về môn học, khả năng tiếp thu rất hạn chế trên lớp.","Cần được hướng dẫn lại từ bảng chữ cái và các từ vựng đầu tiên.","Hầu như không tham gia vào bất kỳ hoạt động ngôn ngữ nào trong lớp.","Cần phối hợp chặt chẽ cùng nhà trường để tìm giải pháp hỗ trợ em.","Nỗ lực rất nhiều để làm quen và không sợ hãi khi học ngoại ngữ."]
+            } },
+            "TH-CN (Tin học)": { type: 'score', data: {
+                10: ["Thao tác máy tính thành thạo, tư duy công nghệ nhạy bén.","Nắm vững kiến thức, thực hiện các bài thực hành nhanh, chính xác.","Có năng khiếu tin học, sử dụng tốt các phần mềm học tập giao.","Hiểu bài sâu, biết cách tự khám phá tính năng mới trên máy tính.","Hoàn thành xuất sắc nhiệm vụ, thao tác máy tính chuyên nghiệp."],
+                9: ["Kỹ năng thực hành tốt, nắm chắc các bước sử dụng máy an toàn.","Hiểu bài nhanh, thực hiện đúng các thao tác trên phần mềm ứng dụng.","Thao tác chuột linh hoạt, hoàn thành tốt bài thực hành trên lớp.","Có ý thức học tập tốt, nắm vững thành phần cơ bản của máy tính.","Bài làm chính xác, trình bày sản phẩm rõ ràng và sạch đẹp."],
+                8: ["Nắm được kiến thức cơ bản, thao tác máy tính đúng quy trình.","Hoàn thành tốt các bài tập, phát huy thêm sự chủ động thực hành.","Kỹ năng sử dụng chuột và bàn phím tốt, làm bài cẩn thận.","Hiểu nội dung bài học, thực hiện đầy đủ nhiệm vụ học tập giao.","Có ý thức giữ gìn thiết bị phòng máy, kết quả học tập ổn định."],
+                7: ["Hiểu bài và thực hiện thao tác cơ bản, rèn thêm tốc độ đánh máy.","Thao tác máy tính mức khá, đôi lúc còn lúng túng dùng phần mềm.","Nắm được kiến thức trọng tâm, cần tập trung hơn giờ thực hành.","Hoàn thành bài mức ổn định, chú ý tính tỉ mỉ khi thực hiện lệnh.","Có ý thức học tập, mạnh dạn hơn khi trao đổi về lỗi kỹ thuật."],
+                6: ["Đạt yêu cầu môn học, rèn luyện thêm kỹ năng dùng chuột, bàn phím.","Bước đầu làm quen phần mềm, chú ý lắng nghe hướng dẫn hơn.","Hoàn thành nội dung mức cơ bản, nỗ lực thực hành nhiều hơn.","Tập trung hơn để nắm vững quy trình tắt, mở máy tính đúng cách.","Năng lực tin học mức đạt, cần sự hỗ trợ và nhắc nhở thường xuyên."],
+                5: ["Cần rèn luyện thao tác chuột, bàn phím và cách mở ứng dụng.","Kiến thức thực hành hạn chế, cần được hướng dẫn lại từ đầu.","Chú ý nghe giảng để không thực hiện sai quy trình trên máy.","Hay quên các bước đã học, cần thực hành lặp lại nhiều lần.","Nghiêm túc và tập trung hơn trong các giờ học phòng máy."],
+                4: ["Thao tác với máy tính còn vụng về, hay sai sót quy trình.","Chưa nắm vững các biểu tượng phần mềm, thực hành nhiều hơn nữa.","Hay làm việc riêng, chưa hoàn thành bài thực hành đúng giờ.","Kỹ năng gõ phím còn yếu, cần dành thêm thời gian luyện tập thêm.","Lúng túng khi thực hiện các yêu cầu đơn giản từ thầy cô hướng dẫn."],
+                3: ["Kiến thức tin học hạn chế, tiếp thu bài thực hành rất chậm.","Chưa biết cách sử dụng các bộ phận cơ bản của máy tính em học.","Cần sự kèm cặp và hướng dẫn chi tiết từng bước từ giáo viên.","Hay quên các quy tắc an toàn khi sử dụng điện và máy tính lớp.","Nỗ lực hơn nữa để làm quen với các thiết bị công nghệ hiện đại."],
+                2: ["Rất khó khăn khi thực hiện các thao tác với chuột máy tính.","Hổng kiến thức cơ bản, chưa làm quen môi trường làm việc máy.","Hay làm sai bước hướng dẫn, cần kiên trì luyện tập mỗi ngày.","Em cần bắt đầu học từ thao tác mở máy và cách cầm chuột máy.","Cần sự hỗ trợ tích cực từ thầy cô và gia đình để tiến bộ hơn."],
+                1: ["Chưa nắm được kiến thức tối thiểu về môn học máy tính này.","Thao tác thực hành rất yếu, cần được hướng dẫn lại tỉ mỉ nhất.","Khả năng tiếp thu bài hạn chế, nỗ lực vượt qua rào cản công nghệ.","Nỗ lực làm quen công nghệ thông tin để không bị bỏ lại phía sau.","Dành nhiều thời gian thực hành tại phòng máy trường học hơn."]
+            } },
+            "TH-CN (Công nghệ)": { type: 'score', data: {
+                10: ["Thực hành khéo léo, sản phẩm sáng tạo, thẩm mĩ và rất bền chắc.","Nắm vững quy trình kỹ thuật, thao tác với dụng cụ rất an toàn.","Có năng khiếu tạo hình, sản phẩm thủ công đạt độ hoàn thiện cao.","Hiểu bài sâu, biết vận dụng kiến thức vào việc chăm sóc đồ dùng.","Hoàn thành xuất sắc nhiệm vụ, tích cực giúp bạn trong giờ học."],
+                9: ["Kỹ năng thực hành tốt, sản phẩm hoàn thiện đúng yêu cầu và đẹp.","Nắm chắc các bước thực hiện, trình bày bài làm khoa học, rõ ràng.","Thao tác đúng quy trình hướng dẫn, đảm bảo an toàn học đường.","Hiểu được vai trò của sản phẩm công nghệ trong đời sống hằng ngày.","Ý thức học tập rất tốt, có tinh thần trách nhiệm cao với sản phẩm."],
+                8: ["Nắm được kiến thức trọng tâm, thực hiện sản phẩm đạt kết quả tốt.","Kỹ năng thủ công ổn định, tỉ mỉ hơn ở các bước trang trí sản phẩm.","Hoàn thành đầy đủ nhiệm vụ học tập, nắm vững quy trình thực hiện.","Có ý thức giữ gìn vệ sinh nơi thực hành, trình bày bài sạch sẽ.","Kết quả học tập tốt, có tiến bộ rõ rệt trong các giờ thực hành."],
+                7: ["Thực hiện được thao tác kỹ thuật cơ bản, chú ý hơn đến thẩm mĩ.","Nắm được quy trình làm sản phẩm nhưng đôi khi thao tác còn chậm.","Hoàn thành bài ở mức đạt, rèn luyện thêm sự khéo léo đôi tay.","Có ý thức học tập, tích cực tham gia thảo luận vấn đề công nghệ.","Hiểu nội dung bài học, cẩn thận hơn khi dùng dụng cụ thực hành."],
+                6: ["Đạt yêu cầu môn học, cần rèn luyện kỹ năng thực hành nhiều hơn.","Sản phẩm hoàn thiện mức cơ bản, cần hướng dẫn nhắc nhở thêm.","Bước đầu làm quen quy trình kỹ thuật, tập trung nghe giảng hơn.","Kỹ năng thao tác dụng cụ còn lúng túng, rèn luyện tính kiên trì.","Cần sự hỗ trợ từ giáo viên và bạn bè để xong sản phẩm thủ công."],
+                5: ["Cần nỗ lực hoàn thành sản phẩm đúng hạn và đúng quy trình.","Kỹ năng thực hành còn yếu, sản phẩm chưa đạt yêu cầu kỹ thuật.","Chưa nắm rõ quy trình thao tác, cần làm lại dưới sự hướng dẫn cô.","Thiếu tập trung trong giờ học thực hành, cần nghiêm túc học tập.","Cần ôn tập kỹ lý thuyết để thao tác an toàn với dụng cụ kỹ thuật."],
+                4: ["Sản phẩm hoàn thành sơ sài, nét cắt và dán còn vụng về, lem nhem.","Chưa hiểu quy trình kỹ thuật, hay làm sai bước hướng dẫn thầy cô.","Kỹ năng dùng dụng cụ như kéo, thước còn kém, rèn luyện thêm nhiều.","Hay để lãng phí vật liệu, chưa ý thức giữ gìn vệ sinh chung lớp.","Nỗ lực hơn để hoàn thành sản phẩm thủ công đơn giản nhất có thể."],
+                3: ["Khả năng thực hành công nghệ hạn chế, sản phẩm không đạt yêu cầu.","Chưa nắm vững kiến thức an toàn và quy trình dùng dụng cụ học.","Rất lúng túng thực hiện bài tập thực hành cắt, gấp và tạo hình.","Tiếp thu bài chậm, cần sự kèm cặp và hướng dẫn trực tiếp từ cô.","Cần kiên trì và nỗ lực rất nhiều để cải thiện kết quả học tập."],
+                2: ["Hổng kiến thức kỹ thuật cơ bản, hầu như không xong được sản phẩm.","Kỹ năng thao tác tay rất yếu, hay làm hỏng vật liệu trong giờ học.","Chưa có ý thức học tập nghiêm túc, thường xuyên làm việc riêng.","Cần lộ trình hỗ trợ riêng giúp em nắm bắt được kỹ năng căn bản.","Phối hợp giám sát chặt chẽ từ gia đình trong việc học tập của em."],
+                1: ["Năng lực môn học rất yếu, cần được hướng dẫn lại từ bước đầu.","Chưa biết cách dùng dụng cụ học tập tối thiểu của môn công nghệ.","Khả năng sáng tạo và thực hành rất hạn chế, cần cố gắng vượt bậc.","Kiên trì rèn luyện mỗi ngày để nâng cao kỹ năng thực hành đôi tay.","Nỗ lực thật nhiều để không bị bỏ quá xa so với chương trình học."]
+            } },
+            "Đạo đức": { type: 'level', data: {
+                'T': ["Lễ phép, ngoan ngoãn, thực hiện tốt chuẩn mực hành vi đạo đức.","Có ý thức tự giác cao, chấp hành nghiêm túc nội quy trường lớp.","Biết quan tâm, chia sẻ và sẵn sàng giúp đỡ bạn bè xung quanh.","Luôn trung thực trong học tập, là tấm gương sáng cho các bạn.","Dũng cảm nhận lỗi và sửa lỗi, có thái độ ứng xử rất văn minh.","Luôn có ý thức giữ gìn vệ sinh chung và bảo vệ của công cộng.","Thực hiện tốt các bài học về lòng biết ơn và sự yêu thương.","Giao tiếp lễ phép với người lớn, nhường nhịn các em nhỏ hơn."],
+                'H': ["Ngoan, biết vâng lời thầy cô và cư xử đúng mực với bạn bè.","Nắm được nội dung bài học, thực hiện được hành vi đạo đức cơ bản.","Có ý thức giữ gìn vệ sinh chung, hoàn thành bài rèn luyện mức đạt.","Biết nói lời cảm ơn, xin lỗi và tham gia tốt hoạt động tập thể.","Có tinh thần đoàn kết, nhường nhịn bạn bè trong giờ học, giờ chơi.","Biết yêu quý người thân và thực hiện các nhiệm vụ được giao phó.","Tự giác hoàn thành bài tập đạo đức theo hướng dẫn của giáo viên.","Biết bảo quản đồ dùng học tập và giữ gìn môi trường trường học."],
+                'C': ["Cần nỗ lực rèn luyện thêm tính tự giác và ý thức chấp hành nội quy.","Vận dụng bài học ứng xử vào thực tế còn hạn chế, cần nhắc nhở.","Cần học cách quan tâm, chia sẻ và hòa đồng hơn với bạn bè lớp.","Đôi lúc còn chưa thật thà, cần rèn luyện tính trung thực khi học.","Cần tập trung hơn trong giờ học để hiểu hành vi văn minh chuẩn.","Hay làm việc riêng, chưa chú ý nghe giảng về bài học đạo đức.","Cần sự đồng hành từ gia đình để rèn luyện thói quen cư xử tốt.","Chưa biết cách tự phục vụ và sắp xếp ngăn nắp đồ dùng cá nhân."]
+            } },
+            "Nghệ thuật (Âm nhạc)": { type: 'level', data: {
+                'T': ["Em hát đúng giai điệu, lời ca rõ ràng, phong cách biểu diễn tự tin.","Năng khiếu âm nhạc tốt, cảm thụ nhịp điệu và gõ đệm rất chính xác.","Hào hứng tham gia hoạt động âm nhạc, biết vận động phụ họa sáng tạo.","Thể hiện bài hát rất tự nhiên, kết hợp động tác hình thể nhịp nhàng.","Hoàn thành xuất sắc môn học, gương mẫu trong tiết sinh hoạt văn nghệ.","Giọng hát hay, truyền cảm; nắm vững bài hát và các bài đọc nhạc.","Rất tích cực tham gia biểu diễn trước lớp với phong thái tự tin.","Nhận diện nhanh các âm thanh và nhịp phách trong mỗi bài học âm nhạc."],
+                'H': ["Em thuộc lời bài hát, hát đúng nhạc và hoàn thành tốt nhiệm vụ.","Ý thức học tập tốt, thực hiện được động tác vận động phụ họa cơ bản.","Tham gia đầy đủ hoạt động ca hát lớp, cần hát to và rõ lời hơn nữa.","Biết cách gõ đệm theo nhịp, phách, đôi lúc cần sự hỗ trợ của cô.","Có cố gắng trong giờ học, bước đầu biết nhún nhảy theo giai điệu.","Hoàn thành bài thực hành âm nhạc ở mức đạt theo yêu cầu giáo viên.","Biết giữ gìn vệ sinh phòng học và bảo quản nhạc cụ gõ đệm sạch sẽ.","Lắng nghe và thực hiện đúng nhịp đếm của thầy cô khi thực hành nhạc."],
+                'C': ["Chưa nhớ kĩ lời bài hát và giai điệu, cần dành thêm thời gian tập.","Khả năng cảm thụ âm nhạc hạn chế, gõ đệm nhịp chưa chính xác.","Còn nhút nhát, chưa tích cực tham gia ca hát và vận động của lớp.","Kỹ năng thực hành âm nhạc lúng túng, cần thả lỏng và tự nhiên hơn.","Chú ý quan sát và lắng nghe nhiều hơn để cải thiện kỹ năng hát em.","Hay quên lời bài hát, cần gia đình hỗ trợ con tập luyện thêm ở nhà.","Thực hiện động tác vận động còn cứng, chưa khớp nhịp điệu bài hát.","Nỗ lực vượt qua sự rụt rè để tự tin biểu diễn cùng các bạn lớp."]
+            } },
+            "Nghệ thuật (Mĩ thuật)": { type: 'level', data: {
+                'T': ["Em vẽ tranh sáng tạo, màu sắc hài hòa, bố cục sản phẩm cân đối.","Thể hiện ý tưởng độc đáo qua nét vẽ, phối hợp màu sắc sinh động.","Có năng khiếu mĩ thuật, các sản phẩm đều đạt độ hoàn thiện cao.","Kỹ năng dùng màu vẽ linh hoạt, trình bày sản phẩm sạch sẽ, rõ ràng.","Hoàn thành xuất sắc nhiệm vụ, luôn có sáng tạo cá nhân đáng khen.","Biết dùng đường nét và hình khối để tạo nên tác phẩm đẹp mắt nhất.","Luôn hào hứng thực hiện chủ đề mĩ thuật mới lạ một cách tích cực.","Sản phẩm tạo hình bằng đất sét và cắt dán thủ công rất khéo léo."],
+                'H': ["Vẽ được hình dáng các sự vật theo yêu cầu, tô màu phù hợp, sạch.","Nắm được kiến thức cơ bản về bố cục và màu sắc, hoàn thành đúng giờ.","Có ý thức học tập, thực hiện tốt bước thực hành theo hướng dẫn cô.","Vẽ tranh đúng chủ đề, thỉnh thoảng cần chú ý tô màu đậm đà hơn.","Tham gia tích cực các tiết học thực hành, trình bày bài làm rõ ràng.","Biết giữ gìn vệ sinh lớp học và đồ dùng mĩ thuật sau khi dùng xong.","Biết nhận xét và đưa ra cảm nghĩ về sản phẩm mĩ thuật của chính mình.","Sử dụng kéo, hồ dán và đất nặn an toàn, hoàn thành bài ở mức đạt."],
+                'C': ["Kỹ năng vẽ hình và phối màu còn lúng túng, rèn thêm khéo léo tay.","Chưa hoàn thành sản phẩm mĩ thuật theo thời gian, cần tập trung hơn.","Bố cục tranh rời rạc, cần chú ý quan sát mẫu và hướng dẫn của cô.","Việc tô màu còn lem nhem và chưa kín hình, rèn luyện tính kiên trì.","Chú ý chuẩn bị đầy đủ đồ dùng học tập để tham gia giờ học hiệu quả.","Nét vẽ còn quá nhỏ, tô màu bị gạch xóa nhiều, nỗ lực nhiều hơn nữa.","Chưa hoàn thành được bước cắt dán hình học đơn giản trên giờ học mĩ.","Cần dành thời gian luyện vẽ thêm ở nhà để theo kịp chương trình mĩ."]
+            } },
+            "Hoạt động trải nghiệm": { type: 'level', data: {
+                'T': ["Rất tích cực, chủ động trong hoạt động tập thể, trách nhiệm cao.","Kỹ năng làm việc nhóm xuất sắc, luôn lắng nghe hỗ trợ bạn bè.","Thể hiện sự sáng tạo và tự tin khi tham gia chủ đề trải nghiệm thực tế.","Có kỹ năng tự phục vụ tốt, sắp xếp đồ dùng cá nhân và thời gian khoa học.","Rất nhanh nhẹn xử lý tình huống thực tế đơn giản, có tinh thần cầu tiến.","Biết tự chăm sóc bản thân và thực hiện nề nếp kỷ luật lớp rất tốt.","Giao tiếp lễ phép, tự tin bày tỏ ý kiến cá nhân trong buổi sinh hoạt.","Luôn đi đầu trong phong trào thi đua và hoạt động ngoại khóa của lớp."],
+                'H': ["Tham gia đầy đủ hoạt động trải nghiệm, hoàn thành tốt nhiệm vụ.","Có ý thức rèn luyện kỹ năng sống, phối hợp tốt cùng bạn trong nhóm.","Nắm được yêu cầu nề nếp, nỗ lực thực hiện các quy định của lớp học.","Biết cách giao tiếp lễ phép, hòa đồng nhưng còn đôi chút rụt rè em ạ.","Có tiến bộ khi tham gia phong trào, chủ động hơn khi thảo luận nhóm.","Biết thực hiện việc làm thể hiện lòng biết ơn với thầy cô và cha mẹ.","Tự giác tham gia vệ sinh trường lớp và giữ gìn cảnh quan sạch đẹp luôn.","Hoàn thành hoạt động tự phục vụ cơ bản theo hướng dẫn của thầy cô giáo."],
+                'C': ["Còn thụ động, chưa tích cực tham gia hoạt động trải nghiệm cùng bạn.","Kỹ năng tự phục vụ còn hạn chế, cần sự nhắc nhở từ giáo viên chủ nhiệm.","Chưa tập trung trong giờ hoạt động chung, hay xao nhãng nhiệm vụ nhóm.","Khả năng giao tiếp hợp tác cùng bạn còn lúng túng, cần nỗ lực hòa nhập.","Cần sự khích lệ để em vượt qua sự nhút nhát và hoàn thành yêu cầu cơ bản.","Chưa biết cách tự sắp xếp đồ dùng cá nhân và góc học tập cho ngăn nắp.","Hay làm việc riêng, không chú ý thực hiện nội quy quy định lớp học.","Cần rèn luyện thêm kỹ năng lắng nghe và tôn trọng ý kiến của tập thể."]
+            } },
+            "Giáo dục thể chất": { type: 'level', data: {
+                'T': ["Thực hiện các động tác chính xác, nhanh nhẹn, tư thế vận động đẹp.","Nắm vững kỹ thuật đội hình đội ngũ, khẩu lệnh dứt khoát và chuẩn xác.","Thể lực tốt, luôn năng nổ và dẫn đầu trong các trò chơi vận động lớp.","Luôn có ý thức kỷ luật cao trên sân tập, thực hiện đúng quy định an toàn.","Hoàn thành xuất sắc nội dung học tập, thể hiện khiếu thể thao vượt trội.","Nhanh nhẹn, linh hoạt trong phối hợp vận động và xử lý tình huống tập.","Thực hiện bài thể dục phát triển chung đều, đúng nhịp và rất nhịp nhàng.","Sức bền tốt, duy trì được tinh thần tích cực trong suốt toàn bộ giờ học."],
+                'H': ["Thực hiện đúng động tác cơ bản, hoàn thành tốt các bài tập thể lực.","Có ý thức tập luyện tích cực, học tập nghiêm túc và chấp hành nội quy.","Tham gia đầy đủ các trò chơi vận động, thực hiện nhiệm vụ mức đạt.","Phối hợp tốt với bạn bè trong các hoạt động rèn luyện và trò chơi lớp.","Tinh thần thể thao tốt, hoàn thành đầy đủ nhiệm vụ giáo dục thể chất học.","Biết cách chuẩn bị trang phục thể thao đúng quy định khi ra sân sân tập.","Nắm vững các quy định an toàn để phòng tránh chấn thương khi vận động tập.","Biết tập hợp hàng ngũ và thực hiện các động tác quay tại chỗ theo khẩu lệnh."],
+                'C': ["Thực hiện động tác vận động còn lúng túng, cần rèn luyện thêm tại nhà.","Thể lực còn yếu, em cần rèn thói quen tập thể dục thường xuyên để khỏe.","Còn thiếu tập trung giờ học, thường thực hiện sai động tác đội hình tập.","Kỹ năng phối hợp vận động còn chậm, cần sự hỗ trợ hướng dẫn từ thầy cô.","Cần phối hợp từ gia đình khích lệ em tích cực tham gia các giờ học thể chất.","Hay mệt mỏi, chưa đủ sức bền hoàn thành bài tập chạy bền trên lớp học.","Thực hiện bài thể dục còn sai nhịp, chưa thuộc hết động tác căn bản nhất.","Còn nhút nhát, chưa dám tham gia vào trò chơi vận động mạnh cùng các bạn."]
+            } }
+        }
+    };
+
+    // ==========================================================
+    // 2. BẢN ĐỒ TỌA ĐỘ TỰ ĐỘNG & BIẾN CỤC BỘ
+    // ==========================================================
+    const COORDINATES = {
+        "Lop1": { 
+            "Toán": 6, "Tiếng việt": 8, "Đạo đức": 9, "Tự nhiên và xã hội": 10, 
+            "Nghệ thuật (Âm nhạc)": 14, "Nghệ thuật (Mĩ thuật)": 15, "Hoạt động trải nghiệm": 16, "Giáo dục thể chất": 17 
+        },
+        "Lop2": { 
+            "Toán": 6, "Tiếng việt": 8, "Đạo đức": 9, "Tự nhiên và xã hội": 10, 
+            "Nghệ thuật (Âm nhạc)": 14, "Nghệ thuật (Mĩ thuật)": 15, "Hoạt động trải nghiệm": 16, "Giáo dục thể chất": 17 
+        },
+        "Lop3": { 
+            "Toán": 6, "Tiếng việt": 8, "Đạo đức": 9, "Tự nhiên và xã hội": 10, "Ngoại ngữ": 12, "TH-CN (Tin học)": 14, "TH-CN (Công nghệ)": 17, 
+            "Nghệ thuật (Âm nhạc)": 18, "Nghệ thuật (Mĩ thuật)": 19, "Hoạt động trải nghiệm": 20, "Giáo dục thể chất": 21 
+        },
+        "Lop45":{ 
+            "Toán": 6, "Tiếng việt": 8, "Đạo đức": 9, "Lịch sử và Địa lí": 11, "Ngoại ngữ": 13, "TH-CN (Tin học)": 15, "Khoa học": 17, "TH-CN (Công nghệ)": 20, 
+            "Nghệ thuật (Âm nhạc)": 21, "Nghệ thuật (Mĩ thuật)": 22, "Hoạt động trải nghiệm": 23, "Giáo dục thể chất": 24 
+        }
+    };
+
+    let excelRows = [];
+    let currentResults = [];
+
+    // ==========================================================
+    // 3. LOGIC HOẠT ĐỘNG
+    // ==========================================================
+
+    // Tải file Excel
+    document.getElementById('excelFile').onchange = function(e) {
+        if(!e.target.files.length) return;
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+            const data = new Uint8Array(ev.target.result);
+            const workbook = XLSX.read(data, {type: 'array'});
+            excelRows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {header: 1, defval: ""});
+            setStatus("✅ Đã tải file Excel thành công! Chọn khối lớp tiếp theo.", "var(--secondary)");
+        };
+        reader.onerror = function() {
+            setStatus("❌ Lỗi khi đọc file Excel!", "var(--danger)");
+        };
+        reader.readAsArrayBuffer(e.target.files[0]);
+    };
+
+    // Nạp danh sách môn học theo khối
+    function loadSubjects() {
+        const grade = document.getElementById('gradeSelect').value;
+        const subMenu = document.getElementById('subjectSelect');
+        subMenu.innerHTML = '<option value="">-- Chọn Môn --</option>';
+        if (COORDINATES[grade]) {
+            Object.keys(COORDINATES[grade]).forEach(s => {
+                let opt = document.createElement('option');
+                opt.value = s; opt.innerText = s;
+                subMenu.appendChild(opt);
+            });
+            setStatus("✅ Đã nhận diện được khối. Hãy chọn môn học.", "var(--primary)");
+        }
+    }
+
+    // Nút Tạo nhận xét (Trái tim của hệ thống)
+    function generate() {
+        const grade = document.getElementById('gradeSelect').value;
+        const sub = document.getElementById('subjectSelect').value;
+        
+        if (!excelRows.length) return alert("Thầy chưa tải file Excel (Bước 1)!");
+        if (!grade || !sub) return alert("Thầy vui lòng hoàn thành Bước 2 và Bước 3!");
+
+        const colIndex = COORDINATES[grade][sub];
+        currentResults = [];
+        let errorCount = 0;
+
+        for (let i = 3; i < excelRows.length; i++) {
+            const row = excelRows[i];
+            const name = (row[3] || row[2] || "").toString().trim(); // Lấy tên từ cột 3 (chuẩn)
+            
+            // Bỏ qua dòng trống tên hoặc dòng tiêu đề lọt xuống
+            if (!name || name.toLowerCase().includes("họ tên") || name.toLowerCase().includes("mức đạt được")) continue;
+
+            let val = (row[colIndex] || "").toString().trim().toUpperCase();
+            let cmt = "";
+            let isError = false;
+
+            if (!val) {
+                // Ngoại lệ: Không có điểm
+                cmt = "[Chưa có điểm - Vui lòng kiểm tra lại trên vnEdu]";
+                isError = true;
+                errorCount++;
+            } else {
+                // Lấy kho nhận xét theo điểm/mức
+                let pool = [];
+                try { pool = XANH_DB[grade][sub].data[val] || []; } catch(e) {}
+                
+                if (pool.length > 0) {
+                    cmt = pool[Math.floor(Math.random() * pool.length)];
+                } else {
+                    cmt = `[Lỗi: Điểm/Mức "${val}" không hợp lệ]`;
+                    isError = true;
+                }
+            }
+
+            currentResults.push({ 
+                stt: row[0] || currentResults.length + 1, 
+                name: name, 
+                val: val || "-", 
+                comment: cmt, 
+                isError: isError,
+                dbKey: grade, 
+                sub: sub 
+            });
+        }
+
+        autoSave(); // Tự động lưu ngay khi bốc xong
+        render();
+
+        if(errorCount > 0) {
+            setStatus(`⚠️ Đã tạo nhận xét, nhưng phát hiện ${errorCount} học sinh thiếu điểm!`, "var(--danger)");
+        } else {
+            setStatus(`🎉 Đã tạo thành công nhận xét môn ${sub} cho ${currentResults.length} học sinh!`, "var(--secondary)");
+        }
+    }
+
+    // Hiển thị ra màn hình
+    function render() {
+        const body = document.getElementById('resultBody');
+        body.innerHTML = "";
+        
+        if(currentResults.length === 0) {
+            body.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#999; padding: 30px;">Chưa có dữ liệu. Hãy bấm "Tạo nhận xét".</td></tr>';
+            return;
+        }
+
+        currentResults.forEach((item, index) => {
+            const badgeClass = item.isError ? "badge-error" : "badge-score";
+            const textClass = item.isError ? "error-text" : "";
+            
+            body.innerHTML += `<tr>
+                <td style="text-align:center;">${item.stt}</td>
+                <td><b>${item.name}</b></td>
+                <td style="text-align:center;"><span class="badge ${badgeClass}">${item.val}</span></td>
+                <td><div class="editable-comment ${textClass}" contenteditable="true" onblur="updateComment(${index}, this.innerText)">${item.comment}</div></td>
+                <td style="text-align:center;"><button class="btn-reload" onclick="shuffle(${index})" title="Đổi câu khác">🔄 Đổi</button></td>
+            </tr>`;
+        });
+    }
+
+    // Cập nhật khi thầy sửa tay (và lưu)
+    function updateComment(idx, newText) {
+        currentResults[idx].comment = newText.trim();
+        // Nếu đã sửa tay thì xóa cờ lỗi để hết in đỏ
+        if (currentResults[idx].isError && newText !== "[Chưa có điểm - Vui lòng kiểm tra lại trên vnEdu]") {
+            currentResults[idx].isError = false; 
+        }
+        autoSave();
+    }
+
+    // Nút quay (chọn câu khác)
+    function shuffle(idx) {
+        let item = currentResults[idx];
+        if (item.isError && item.val === "-") return alert("Học sinh này chưa có điểm nên không thể đổi câu nhận xét!");
+        
+        let pool = XANH_DB[item.dbKey][item.sub].data[item.val] || [];
+        if (pool.length > 0) {
+            // Đảm bảo bốc ra câu mới khác câu cũ
+            let newCmt = item.comment;
+            let attempts = 0;
+            while(newCmt === item.comment && attempts < 5) {
+                newCmt = pool[Math.floor(Math.random() * pool.length)];
+                attempts++;
+            }
+            currentResults[idx].comment = newCmt;
+            autoSave();
+            render();
+        }
+    }
+
+    // Sao chép lên vnEdu
+    function copyAll() {
+        if (!currentResults.length) return alert("Chưa có danh sách để copy!");
+        const text = currentResults.map(r => r.comment).join("\n");
+        navigator.clipboard.writeText(text).then(() => {
+            alert("📋 Đã copy thành công toàn bộ cột nhận xét!\nBây giờ thầy hãy mở vnEdu, click vào ô nhận xét của học sinh đầu tiên và ấn Ctrl+V.");
+        });
+    }
+
+    // Lưu ngầm (LocalStorage)
+    function autoSave() {
+        localStorage.setItem('xanhEduData2', JSON.stringify(currentResults));
+    }
+
+    // Lưu thủ công (Cho nút Bấm)
+    function manualSave() {
+        if(!currentResults.length) return alert("Bảng dữ liệu đang trống!");
+        autoSave();
+        setStatus("💾 Đã lưu phiên làm việc vào bộ nhớ thành công!", "var(--warning)");
+    }
+
+    // Tải dữ liệu lưu ngầm khi khởi động
+    function loadSavedData() {
+        const saved = localStorage.getItem('xanhEduData2');
+        if (saved) {
+            try {
+                currentResults = JSON.parse(saved);
+                if(currentResults.length > 0) {
+                    render();
+                    setStatus("🔄 Đã khôi phục phiên làm việc trước đó.", "var(--primary)");
+                }
+            } catch(e) { console.log("Lỗi tải dữ liệu cũ"); }
+        }
+    }
+
+    // Xóa sạch
+    function clearData() {
+        if(!confirm("⚠️ Thầy có chắc chắn muốn XÓA SẠCH dữ liệu hiện tại để làm lại từ đầu không?")) return;
+        localStorage.removeItem('xanhEduData2');
+        currentResults = [];
+        excelRows = [];
+        document.getElementById('excelFile').value = "";
+        document.getElementById('gradeSelect').value = "";
+        document.getElementById('subjectSelect').innerHTML = '<option value="">-- Chờ Bước 2 --</option>';
+        render();
+        setStatus("🗑️ Đã dọn dẹp sạch sẽ. Sẵn sàng cho file mới!", "#333");
+    }
+
+    // Cập nhật thanh trạng thái
+    function setStatus(msg, color) {
+        const st = document.getElementById('status');
+        st.innerText = msg;
+        st.style.color = color;
+    }
+
+    // Khởi động
+    window.onload = loadSavedData;
+
+</script>
+</body>
+</html>
