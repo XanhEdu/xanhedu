@@ -1079,6 +1079,88 @@ function toast(m, c) {
     setTimeout(() => t.style.display = "none", 3000);
 }
 
+// ===================================================================
+// TÍNH NĂNG MỚI: HỘP THOẠI CHÀO MỪNG TỰ ĐỘNG (BẢN ALL-IN-ONE)
+// ===================================================================
+
+// 1. Hàm tự động sinh ra Hộp thoại (Không cần chép HTML/CSS thủ công nữa)
+function injectModal() {
+    if(document.getElementById('welcomeModal')) return;
+    const style = document.createElement('style');
+    style.innerHTML = `
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+        .modal-content { background: white; padding: 30px; border-radius: 12px; width: 90%; max-width: 400px; box-shadow: 0 15px 30px rgba(0,0,0,0.3); text-align: center; animation: popIn 0.4s ease-out forwards; }
+        @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        .modal-content h2 { margin-top: 0; color: var(--success); }
+        .modal-content input { width: 100%; padding: 12px; margin-top: 10px; margin-bottom: 20px; border: 1px solid #ced4da; border-radius: 8px; font-size: 15px; box-sizing: border-box; outline: none; }
+        .modal-content input:focus { border-color: var(--success); box-shadow: 0 0 0 3px rgba(40,167,69,0.2); }
+        .btn-start { width: 100%; background: var(--success); color: white; border: none; padding: 14px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; transition: 0.3s; }
+        .btn-start:hover { background: #218838; transform: translateY(-2px); }
+    `;
+    document.head.appendChild(style);
+
+    const modalHTML = `
+    <div id="welcomeModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h2>👋 Chào mừng Thầy/Cô!</h2>
+            <p style="color: #666; margin-bottom: 20px; font-size: 14px;">Đề sử dụng công cụ, vui lòng cung cấp thông tin.</p>
+            <input type="text" id="gvName" placeholder="Họ tên Thầy/Cô" required>
+            <input type="text" id="gvProvince" placeholder="Tỉnh/Thành" required>
+            <button class="btn-start" onclick="luuThongTin()">BẮT ĐẦU SỬ DỤNG 🚀</button>
+        </div>
+    </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+// 2. Hàm gửi thông tin ngầm về Google Form
+function luuThongTin() {
+    let name = document.getElementById("gvName").value.trim();
+    let province = document.getElementById("gvProvince").value.trim();
+    if (name === "" || province === "") {
+        alert("Thầy/Cô vui lòng nhập đầy đủ Họ Tên và Đơn vị nhé!");
+        return;
+    }
+    
+    // Ghi nhớ để không hỏi lại
+    localStorage.setItem("XanhEdu_Name", name);
+    localStorage.setItem("XanhEdu_Province", province);
+    document.getElementById("welcomeModal").style.display = "none";
+    hienThiChaoMung(name, province);
+
+    // Gửi về máy chủ của thầy Đức
+    let formUrl = "https://docs.google.com/forms/d/e/1FAIpQLSfabEDFlP7pmzy7e3DOH6QRx8Df6KHlXXXQNOpEC7fZCqHtvA/formResponse";
+    let formData = new FormData();
+    formData.append("entry.456762207", name);      
+    formData.append("entry.1243929984", province); 
+    fetch(formUrl, { method: "POST", mode: "no-cors", body: formData }).catch(e => console.log(e));
+}
+
+// 3. Hàm hiển thị câu chào
+function hienThiChaoMung(name, province) {
+    let headerDesc = document.querySelector(".header p");
+    if(headerDesc && !headerDesc.innerHTML.includes("Xin chào")) {
+        headerDesc.innerHTML += `<br><span style="color: var(--success); font-weight: 600; background: #e0f2f1; padding: 4px 15px; border-radius: 20px; display: inline-block; margin-top: 10px; font-size: 14px;">👤 Xin chào Thầy/Cô: ${name} | 📍 ${province}</span>`;
+    }
+}
+
+// 4. Nút Làm Mới (Chỉ xóa bảng điểm, GIỮ NGUYÊN thông tin Giáo viên)
+function clearData() {
+    if(confirm("Thầy/Cô có chắc chắn muốn xóa bảng kết quả hiện tại để tải file mới?")){
+        currentResults = []; 
+        // Chỉ xóa dữ liệu học sinh
+        localStorage.removeItem('XanhEdu21Pro_Data'); 
+        
+        // Tuyệt đối KHÔNG xóa "XanhEdu_Name" và "XanhEdu_Province" nữa
+        
+        document.getElementById('excelFile').value = "";
+        
+        // Tải lại trang (Lúc này hệ thống vẫn nhớ tên nên hộp thoại sẽ không hiện ra nữa)
+        location.reload(); 
+    }
+}
+
+// 5. Khởi động mọi thứ khi trang vừa mở lên
 window.onload = function() {
     const saved = localStorage.getItem('XanhEdu21Pro_Data');
     if(saved) {
@@ -1087,7 +1169,19 @@ window.onload = function() {
             if(currentResults.length > 0) renderTable();
         } catch(e) {}
     }
-    switchTab('monhoc'); // Mặc định mở tab Môn học
+    switchTab('monhoc'); 
+
+    // Bật hộp thoại
+    injectModal();
+
+    // Kiểm tra thông tin
+    let savedName = localStorage.getItem("XanhEdu_Name");
+    let savedProvince = localStorage.getItem("XanhEdu_Province");
+    if (!savedName || !savedProvince) {
+        document.getElementById("welcomeModal").style.display = "flex";
+    } else {
+        hienThiChaoMung(savedName, savedProvince);
+    }
 };
 </script>
 </body>
