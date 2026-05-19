@@ -667,7 +667,7 @@ var PCNL_DB = {
                 "C": ["Cần dũng cảm hơn trong việc thừa nhận khuyết điểm.", "Nên tự tin vào khả năng của mình, không nhìn bài bạn.", "Cần rèn luyện thói quen nói sự thật trong mọi tình huống.", "Chú ý xin phép rõ ràng khi muốn mượn đồ của người khác.", "Hãy giữ đúng lời hứa của mình với mọi người."]
             },
             "Trách nhiệm": {
-                "T": ["Có ý thức trách nhiệm cao với các nhiệm vụ chung của tập thể.", "Bảo quản tài sản chung, biết tiết kiệm điện, nước cho trường, nhà.", "Là một lớp trưởng/tổ trưởng gương mẫu, đôn đốc bạn bè tốt.", "Hoàn thành công việc được giao đúng hạn và đạt chất lượng cao.", "Biết tự chăm sóc bản thân, không ỷ lại vào người lớn."],
+                "T": ["Có ý thức trách nhiệm cao với các nhiệm vụ chung của tập thể.", "Bảo quản tài sản chung, biết tiết kiệm điện, nước cho trường, nhà.", "Là một thành viên gương mẫu, biết đôn đốc bạn bè tốt.", "Hoàn thành công việc được giao đúng hạn và đạt chất lượng cao.", "Biết tự chăm sóc bản thân, không ỷ lại vào người lớn."],
                 "Đ": ["Thực hiện nghiêm túc nội quy, quy định của trường, lớp.", "Hoàn thành các công việc nhóm được phân công.", "Giữ gìn vệ sinh chỗ ngồi và đóng góp vào vệ sinh chung.", "Bảo quản tốt sách giáo khoa và đồ dùng học tập cá nhân.", "Tuân thủ các quy tắc an toàn giao thông khi đi đường."],
                 "C": ["Cần tự giác hơn trong các buổi trực nhật vệ sinh.", "Nên có trách nhiệm hoàn thành bài tập mà không cần nhắc nhở.", "Hãy cẩn thận hơn trong việc giữ gìn và bảo vệ sách vở.", "Cần chú ý thực hiện đúng các nội quy trong giờ ra chơi.", "Đừng đùn đẩy trách nhiệm cho bạn khác khi làm việc nhóm."]
             }
@@ -740,7 +740,7 @@ var PCNL_DB = {
                 "C": ["Cần tự tin vào kiến thức của mình, tuyệt đối không nhìn bài bạn.", "Nên dũng cảm nhận lỗi ngay khi bản thân làm việc chưa đúng.", "Hãy luôn giữ đúng lời hứa để tạo niềm tin với thầy cô, bạn bè.", "Cần rèn luyện tính thẳng thắn, tránh việc nói sai sự thật.", "Chú ý minh bạch hơn trong các trò chơi hoặc hoạt động thi đấu."]
             },
             "Trách nhiệm": {
-                "T": ["Hoàn thành xuất sắc và có trách nhiệm cao với mọi nhiệm vụ tập thể.", "Là cán bộ lớp gương mẫu, biết đôn đốc và tổ chức hoạt động tốt.", "Có ý thức bảo vệ tài sản chung, thực hành tiết kiệm điện, nước rất tốt.", "Dám chịu trách nhiệm về mọi hành động của bản thân, không né tránh.", "Luôn chủ động quan tâm đến công việc chung của gia đình và lớp học."],
+                "T": ["Hoàn thành xuất sắc và có trách nhiệm cao với mọi nhiệm vụ tập thể.", "Là một thành viên gương mẫu, biết đôn đốc và tổ chức hoạt động tốt.", "Có ý thức bảo vệ tài sản chung, thực hành tiết kiệm điện, nước rất tốt.", "Dám chịu trách nhiệm về mọi hành động của bản thân, không né tránh.", "Luôn chủ động quan tâm đến công việc chung của gia đình và lớp học."],
                 "Đ": ["Chấp hành nghiêm thực nội quy, quy chế của trường và của lớp.", "Hoàn thành phần việc của mình khi tham gia làm việc nhóm.", "Giữ gìn vệ sinh chung, có ý thức bảo vệ bàn ghế, sách vở.", "Biết tự dọn dẹp không gian học tập và phòng ngủ của mình.", "Thực hiện đúng luật lệ giao thông và các quy tắc an toàn xã hội."],
                 "C": ["Cần thể hiện tinh thần trách nhiệm cao hơn trong trực nhật vệ sinh.", "Nên tự giác hoàn thành bài tập về nhà mà không chờ cha mẹ đôn đốc.", "Hãy cẩn trọng hơn trong việc bảo quản đồ dùng, thiết bị của trường.", "Tránh việc ỷ lại công việc cho các bạn khác trong tổ, nhóm.", "Cần rèn luyện kỹ năng tự quản lý bản thân, thực hiện đúng nội quy."]
             }
@@ -919,15 +919,121 @@ function processData() {
 
 function processMonHoc(grade, sub) {
     const gradeKey = grade === "45" ? "Lop45" : "Lop" + grade;
-    const colIndex = COORDINATES[gradeKey][sub];
     let errorCount = 0;
 
-    for (let i = 3; i < excelData.length; i++) {
+    // ==========================================
+    // THUẬT TOÁN "MẮT THẦN" V2.0 (Phân biệt rõ ĐIỂM SỐ và MỨC T/H/C)
+    // ==========================================
+    let cotTen = -1, cotTen2 = -1, cotMucDat = -1, dongBatDau = -1;
+    let isHomeroomFile = false;
+    let subUpper = sub.toUpperCase();
+    
+    // 1. Phân loại Môn học: Nhóm nào tính bằng Điểm số?
+    let isScoreSubject = ["TOÁN", "TIẾNG VIỆT", "NGOẠI NGỮ", "TIẾNG ANH", "TIN HỌC", "KHOA HỌC", "LỊCH SỬ", "ĐỊA LÍ", "CÔNG NGHỆ"].some(kw => subUpper.includes(kw));
+
+    // Nhận diện Keyword môn học để tìm cột
+    let subject_keywords = [];
+    if(subUpper.includes("ÂM NHẠC")) subject_keywords = ["ÂM NHẠC", "AM NHAC"];
+    else if(subUpper.includes("MĨ THUẬT")) subject_keywords = ["MĨ THUẬT", "MI THUAT", "MỸ THUẬT"];
+    else if(subUpper.includes("THỂ CHẤT")) subject_keywords = ["GIÁO DỤC THỂ CHẤT", "GIAO DUC THE CHAT", "THỂ CHẤT"];
+    else if(subUpper.includes("NGOẠI NGỮ") || subUpper.includes("TIẾNG ANH")) subject_keywords = ["NGOẠI NGỮ", "TIẾNG ANH", "TIENG ANH"];
+    else subject_keywords = [subUpper]; 
+
+    // 2. Tìm dòng bắt đầu danh sách (dòng chứa STT = 1)
+    for (let r = 0; r < Math.min(15, excelData.length); r++) {
+        let val0 = (excelData[r][0] || "").toString().trim();
+        if (val0 === "1" || val0 === "1.0") { dongBatDau = r; break; }
+    }
+    if (dongBatDau === -1) dongBatDau = 3; 
+
+    // 3. Quét tiêu đề để tìm cột Họ Tên và phân loại file Chủ Nhiệm
+    for (let r = 0; r < dongBatDau; r++) {
+        let row = excelData[r] || [];
+        for (let c = 0; c < row.length; c++) {
+            let val = (row[c] || "").toString().toUpperCase().trim();
+            if (!val) continue;
+            
+            if (val === "HỌ TÊN" || val === "HỌ VÀ TÊN" || val.includes("HỌ VÀ TÊN")) {
+                cotTen = c;
+                if (excelData[dongBatDau] && excelData[dongBatDau][c+1]) {
+                    let nextVal = (excelData[dongBatDau][c+1] || "").toString().trim();
+                    let isDate = /^\d{1,2}[/-]\d{1,2}/.test(nextVal);
+                    let isGrade = ["T", "H", "C", "Đ", "CĐ"].includes(nextVal.toUpperCase());
+                    if (nextVal !== "" && !isDate && !isGrade && nextVal.length > 1) cotTen2 = c + 1;
+                }
+            }
+            if (val === "TOÁN" || val === "TIẾNG VIỆT" || val === "TOAN") isHomeroomFile = true;
+        }
+    }
+
+    // 4. Tìm chính xác cột Điểm số / Mức đạt
+    if (isHomeroomFile) {
+        for (let r = 0; r < dongBatDau; r++) {
+            let row = excelData[r] || [];
+            for (let c = 0; c < row.length; c++) {
+                let val = (row[c] || "").toString().toUpperCase().trim();
+                if (val.length > 0 && val.length < 40) {
+                    if (subject_keywords.some(kw => val.includes(kw))) {
+                        cotMucDat = c; // Mặc định là tìm thấy tên môn (cột Mức)
+                        
+                        // NẾU LÀ MÔN TÍNH ĐIỂM -> Ép hệ thống lấy cột bên phải (Điểm KTĐK)
+                        if (isScoreSubject) {
+                            if (excelData[r+1] && excelData[r+1][c+1]) {
+                                let nextHeader = (excelData[r+1][c+1] || "").toString().toUpperCase();
+                                if (nextHeader.includes("ĐIỂM")) cotMucDat = c + 1;
+                            } else {
+                                cotMucDat = c + 1; // Fallback VnEdu
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+            if (cotMucDat !== -1) break;
+        }
+    } else {
+        // Dò trong file GV Bộ môn
+        for (let r = Math.max(0, dongBatDau - 2); r < dongBatDau; r++) {
+            let row = excelData[r] || [];
+            for (let c = 0; c < row.length; c++) {
+                let val = (row[c] || "").toString().toUpperCase().trim();
+                if (["XL CK2", "XL CK1", "XL CK", "MỨC ĐẠT", "ĐÁNH GIÁ", "XẾP LOẠI", "XL"].some(kw => val.includes(kw))) {
+                    if (!val.includes("THI LẠI")) cotMucDat = c;
+                }
+            }
+        }
+    }
+
+    // 5. Fallback an toàn
+    if (cotTen === -1) cotTen = 3; 
+    if (cotMucDat === -1) cotMucDat = COORDINATES[gradeKey][sub]; 
+    // ==========================================
+
+    // XUẤT RA DANH SÁCH NHẬN XÉT
+    for (let i = dongBatDau; i < excelData.length; i++) {
         const row = excelData[i];
-        const name = (row[3] || row[2] || "").toString().trim();
+        if(!row) continue;
+        
+        let namePart1 = (row[cotTen] || "").toString().trim();
+        let namePart2 = cotTen2 !== -1 ? (row[cotTen2] || "").toString().trim() : "";
+        let name = namePart2 ? namePart1 + " " + namePart2 : namePart1;
+        
         if (!name || name.toLowerCase().includes("họ tên") || name.toLowerCase().includes("mức đạt được")) continue;
 
-        let val = (row[colIndex] || "").toString().trim().toUpperCase();
+        let val = (row[cotMucDat] || "").toString().trim().toUpperCase();
+        
+        // KIỂM SOÁT ĐỊNH DẠNG ĐẦU VÀO TÙY THEO LOẠI MÔN
+        if (!isScoreSubject) {
+             // Môn đánh giá bằng chữ: Ép về chuẩn T, H, C
+             if (val.includes("HOÀN THÀNH TỐT") || val === "T") val = "T";
+             else if (val.includes("CHƯA HOÀN THÀNH") || val === "C") val = "C";
+             else if (val.includes("HOÀN THÀNH") || val === "H") val = "H";
+             else if (val === "") val = "H"; 
+        } else {
+             // Môn đánh giá bằng ĐIỂM: Giữ nguyên số điểm (9, 10).
+             if(val === "") val = "7"; // Điểm ảo nếu GV để trống file
+        }
+
         let cmt = ""; let isError = false;
 
         if (!val) {
@@ -943,9 +1049,10 @@ function processMonHoc(grade, sub) {
                 isError = true; errorCount++;
             }
         }
-        currentResults.push({ stt: row[0] || (i-2), name, val, comment: cmt, isError, origin: { type: 'monhoc', gradeKey, sub } });
+        
+        currentResults.push({ stt: row[0] || (i-dongBatDau+1), name, val, comment: cmt, isError, origin: { type: 'monhoc', gradeKey, sub } });
     }
-    
+
     renderTable();
     saveToLocal(false);
     if(errorCount > 0) toast(`⚠️ Hoàn thành, nhưng có ${errorCount} học sinh thiếu điểm!`, "var(--warning)");
