@@ -1083,7 +1083,7 @@ function toast(m, c) {
 // TÍNH NĂNG MỚI: HỘP THOẠI CHÀO MỪNG TỰ ĐỘNG (BẢN ALL-IN-ONE)
 // ===================================================================
 
-// 1. Hàm tự động sinh ra Hộp thoại (Không cần chép HTML/CSS thủ công nữa)
+// 1. Hàm tự động sinh ra Hộp thoại (Đã cập nhật danh sách 34 Tỉnh/Thành sau sáp nhập)
 function injectModal() {
     if(document.getElementById('welcomeModal')) return;
     const style = document.createElement('style');
@@ -1092,8 +1092,8 @@ function injectModal() {
         .modal-content { background: white; padding: 30px; border-radius: 12px; width: 90%; max-width: 400px; box-shadow: 0 15px 30px rgba(0,0,0,0.3); text-align: center; animation: popIn 0.4s ease-out forwards; }
         @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
         .modal-content h2 { margin-top: 0; color: var(--success); }
-        .modal-content input { width: 100%; padding: 12px; margin-top: 10px; margin-bottom: 20px; border: 1px solid #ced4da; border-radius: 8px; font-size: 15px; box-sizing: border-box; outline: none; }
-        .modal-content input:focus { border-color: var(--success); box-shadow: 0 0 0 3px rgba(40,167,69,0.2); }
+        .modal-content input, .modal-content select { width: 100%; padding: 12px; margin-top: 10px; margin-bottom: 20px; border: 1px solid #ced4da; border-radius: 8px; font-size: 15px; box-sizing: border-box; outline: none; background: white; font-family: inherit; color: #333; cursor: pointer; }
+        .modal-content input:focus, .modal-content select:focus { border-color: var(--success); box-shadow: 0 0 0 3px rgba(40,167,69,0.2); }
         .btn-start { width: 100%; background: var(--success); color: white; border: none; padding: 14px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; transition: 0.3s; }
         .btn-start:hover { background: #218838; transform: translateY(-2px); }
     `;
@@ -1103,9 +1103,47 @@ function injectModal() {
     <div id="welcomeModal" class="modal-overlay" style="display: none;">
         <div class="modal-content">
             <h2>👋 Chào mừng Thầy/Cô!</h2>
-            <p style="color: #666; margin-bottom: 20px; font-size: 14px;">Đề sử dụng công cụ, vui lòng cung cấp thông tin.</p>
-            <input type="text" id="gvName" placeholder="Họ tên Thầy/Cô" required>
-            <input type="text" id="gvProvince" placeholder="Tỉnh/Thành" required>
+            <p style="color: #666; margin-bottom: 20px; font-size: 14px;">Vui lòng cho biết thông tin để hệ thống hỗ trợ cá nhân hóa.</p>
+            <input type="text" id="gvName" placeholder="Nhập Họ và Tên của Thầy/Cô..." required>
+            
+            <select id="gvProvince" required>
+                <option value="">-- Chọn Tỉnh / Thành phố --</option>
+                <option value="An Giang" selected>An Giang</option>
+                <option value="Bắc Ninh">Bắc Ninh</option>
+                <option value="Cà Mau">Cà Mau</option>
+                <option value="Cao Bằng">Cao Bằng</option>
+                <option value="Thành phố Cần Thơ">Thành phố Cần Thơ</option>
+                <option value="Thành phố Đà Nẵng">Thành phố Đà Nẵng</option>
+                <option value="Đắk Lắk">Đắk Lắk</option>
+                <option value="Điện Biên">Điện Biên</option>
+                <option value="Đồng Nai">Đồng Nai</option>
+                <option value="Đồng Tháp">Đồng Tháp</option>
+                <option value="Gia Lai">Gia Lai</option>
+                <option value="Thành phố Hà Nội">Thành phố Hà Nội</option>
+                <option value="Hà Tĩnh">Hà Tĩnh</option>
+                <option value="Thành phố Hải Phòng">Thành phố Hải Phòng</option>
+                <option value="Hưng Yên">Hưng Yên</option>
+                <option value="Khánh Hòa">Khánh Hòa</option>
+                <option value="Lai Châu">Lai Châu</option>
+                <option value="Lạng Sơn">Lạng Sơn</option>
+                <option value="Lào Cai">Lào Cai</option>
+                <option value="Lâm Đồng">Lâm Đồng</option>
+                <option value="Nghệ An">Nghệ An</option>
+                <option value="Ninh Bình">Ninh Bình</option>
+                <option value="Phú Thọ">Phú Thọ</option>
+                <option value="Quảng Ngãi">Quảng Ngãi</option>
+                <option value="Quảng Ninh">Quảng Ninh</option>
+                <option value="Quảng Trị">Quảng Trị</option>
+                <option value="Sơn La">Sơn La</option>
+                <option value="Tây Ninh">Tây Ninh</option>
+                <option value="Thái Nguyên">Thái Nguyên</option>
+                <option value="Thanh Hóa">Thanh Hóa</option>
+                <option value="Thành phố Hồ Chí Minh">Thành phố Hồ Chí Minh</option>
+                <option value="Thành phố Huế">Thành phố Huế</option>
+                <option value="Tuyên Quang">Tuyên Quang</option>
+                <option value="Vĩnh Long">Vĩnh Long</option>
+            </select>
+            
             <button class="btn-start" onclick="luuThongTin()">BẮT ĐẦU SỬ DỤNG 🚀</button>
         </div>
     </div>
